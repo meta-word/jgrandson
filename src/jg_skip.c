@@ -19,11 +19,11 @@ void skip_any_whitespace(
 //
 // (1) A character marking the termination of X is encountered; after which
 //     *u is incremented the remaining bytes needed to point to the first
-//     non-whitespace character after X, if any. Then return "NULL".
+//     non-whitespace character after X, if any. Then return JG_OK.
 //
 // (2) *u reaches *u_over; i.e., the end of the JSON string is reached
 //     before condition (1) occurs, indicating that X is unterminated.
-//     Return an error message string regarding the unterminated character.
+//     Return a jg_ret value indicating the unterminated type.
 //
 // Note that no JSON values are validated here. Validation occurs in parse_X()
 // in jg_parse.c
@@ -34,7 +34,7 @@ void skip_any_whitespace(
 // mutually exlusive, it does not need to be UTF-8-aware. It does however need
 // to skip escaped characters and escaped UTF-16 hex encodings, the values of
 // which can be equal to that of a double-quote (i.e., 0x22).
-char const * skip_string(
+jg_ret skip_string(
     uint8_t const * * u,
     uint8_t const * const u_over
 ) {
@@ -43,7 +43,7 @@ char const * skip_string(
         if (**u == '"') {
             (*u)++;
             skip_any_whitespace(u, u_backup);
-            return NULL;
+            return JG_OK;
         }
         if (**u == '\\') {
             if (++(*u) >= u_over) {
@@ -59,12 +59,10 @@ char const * skip_string(
         }
     }
     *u = u_backup; // Set u to the opening " to provide it as error context.
-    static char const e[] =
-        "Unterminated string: closing double-quote ('\"') not found.";
-    return e;
+    return JG_E_PARSE_UNTERM_STR;
 }
 
-char const * skip_array(
+jg_ret skip_array(
     uint8_t const * * u,
     uint8_t const * const u_over
 ) {
@@ -81,18 +79,16 @@ char const * skip_array(
         case ']':
             (*u)++;
             skip_any_whitespace(u, u_over);
-            return NULL;
+            return JG_OK;
         default:
             continue;
         }
     }
     *u = u_backup; // Set u to the opening [ to provide it as error context.
-    static char const e[] =
-        "Unterminated array: closing square bracket (']') not found.";
-    return e;
+    return JG_E_PARSE_UNTERM_ARR;
 }
 
-char const * skip_object(
+jg_ret skip_object(
     uint8_t const * * u,
     uint8_t const * const u_over
 ) {
@@ -109,15 +105,13 @@ char const * skip_object(
         case '}':
             (*u)++;
             skip_any_whitespace(u, u_over);
-            return NULL;
+            return JG_OK;
         default:
             continue;
         }
     }
     *u = u_backup; // Set u to the opening { to provide it as error context.
-    static char const e[] =
-        "Unterminated object: closing curly brace ('}') not found.";
-    return e;
+    return JG_E_PARSE_UNTERM_OBJ;
 }
 
 // Any value skipped by skip_element() has already been skipped over before, so

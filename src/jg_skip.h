@@ -10,17 +10,17 @@ void skip_any_whitespace(
     uint8_t const * const u_over
 );
 
-char const * skip_string(
+jg_ret skip_string(
     uint8_t const * * u,
     uint8_t const * const u_over
 );
 
-char const * skip_array(
+jg_ret skip_array(
     uint8_t const * * u,
     uint8_t const * const u_over
 );
 
-char const * skip_object(
+jg_ret skip_object(
     uint8_t const * * u,
     uint8_t const * const u_over
 );

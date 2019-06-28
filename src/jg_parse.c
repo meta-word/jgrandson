@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright © 2019 William Budd
 
+#define _POSIX_C_SOURCE 201112L // ftello() and fseeko()'s off_t
+#define _FILE_OFFSET_BITS 64 // Ensure off_t is 64 bits (possibly redundant)
+
+#include "jg_opaque.h"
 #include "jg_skip.h"
 
-static char const * parse_false(
+static jg_ret parse_false(
     uint8_t const * * u,
     uint8_t const * const u_over,
     struct jg_val * v
@@ -12,15 +16,13 @@ static char const * parse_false(
         ++(*u) >= u_over || **u != 'l' ||
         ++(*u) >= u_over || **u != 's' ||
         ++(*u) >= u_over || **u != 'e') {
-        static char const e[] = "JSON value starting with an \"f\" does not "
-            "spell \"false\" as expected.";
-        return e;
+        return JG_E_PARSE_FALSE;
     }
     v->type = JG_TYPE_FALSE;
-    return NULL;
+    return JG_OK;
 }
 
-static char const * parse_true(
+static jg_ret parse_true(
     uint8_t const * * u,
     uint8_t const * const u_over,
     struct jg_val * v
@@ -28,15 +30,13 @@ static char const * parse_true(
     if (++(*u) >= u_over || **u != 'r' ||
         ++(*u) >= u_over || **u != 'u' ||
         ++(*u) >= u_over || **u != 'e') {
-        static char const e[] = "JSON value starting with a \"t\" does not "
-            "spell \"true\" as expected.";
-        return e;
+        return JG_E_PARSE_TRUE;
     }
     v->type = JG_TYPE_TRUE;
-    return NULL;
+    return JG_OK;
 }
 
-static char const * parse_null(
+static jg_ret parse_null(
     uint8_t const * * u,
     uint8_t const * const u_over,
     struct jg_val * v
@@ -44,29 +44,23 @@ static char const * parse_null(
     if (++(*u) >= u_over || **u != 'u' ||
         ++(*u) >= u_over || **u != 'l' ||
         ++(*u) >= u_over || **u != 'l') {
-        static char const e[] = "JSON value starting with an \"n\" does not "
-            "spell \"null\" as expected.";
-        return e;
+        return JG_E_PARSE_NULL;
     }
     v->type = JG_TYPE_NULL;
-    return NULL;
+    return JG_OK;
 }
 
-static char const * parse_number(
+static jg_ret parse_number(
     uint8_t const * * u,
     uint8_t const * const u_over,
     struct jg_val * v
 ) {
     uint8_t const * str = *u;
     if (**u == '-' && (++(*u) >= u_over || **u < '0' || **u > '9')) {
-        static char const e[] = "A minus sign must be followed by a digit.";
-        return e;
+        return JG_E_PARSE_NUM_SIGN;
     }
     if (**u == '0' && ++(*u) < u_over && **u >= '0' && **u <= '9') {
-        static char const e[] = "A numeric value starting with a zero may only "
-            "consist of multiple characters when the 2nd character is a "
-            "decimal point.";
-        return e;
+        return JG_E_PARSE_NUM_LEAD_ZERO;
     }
     bool has_decimal_point = false;
     do {
@@ -75,8 +69,7 @@ static char const * parse_number(
             goto number_parsed;
         case '.':
             if (has_decimal_point) {
-                static char const e[] = "Duplicate decimal point?";
-                return e;
+                return JG_E_PARSE_NUM_MULTIPLE_POINTS;
             }
             has_decimal_point = true;
             break;
@@ -87,9 +80,7 @@ static char const * parse_number(
             if (++(*u) >= u_over ||
                 ((**u == '+' || **u == '-') && ++(*u) >= u_over) ||
                 **u < '0' || **u > '9') {
-                static char const e[] = "Numeric exponent parts must include "
-                    "at least one digit.";
-                return e;
+                return JG_E_PARSE_NUM_EXP_NO_DIGIT;
             }
             while (++(*u) < u_over) {
                 switch (**u) {
@@ -100,95 +91,84 @@ static char const * parse_number(
                 case '5': case '6': case '7': case '8': case '9':
                     continue;
                 default:
-                    {
-                        static char const e[] =
-                            "Unrecognized character in numeric exponent part.";
-                        return e;
-                    }
+                    return JG_E_PARSE_NUM_EXP_INVALID;
                 }
             }
             goto number_parsed;
         default:
-            {
-                static char const e[] =
-                    "Unrecognized character in numeric value.";
-                return e;
-            }
+            return JG_E_PARSE_NUM_INVALID;
         }
     } while (++(*u) < u_over);
     number_parsed:
     v->type = JG_TYPE_NUMBER;
     v->str = str;
     v->byte_c = *u - str;
-    return NULL;
+    return JG_OK;
 }
 
-static char const * parse_utf8(
+static jg_ret parse_utf8(
     uint8_t const * * u
 ) {
     if (**u >= 0xC0 && **u <= 0xDF) { // 2-byte UTF-8 char
         if (*++(*u) >= 0x80 || **u <= 0xBF) {
-            return NULL;
+            return JG_OK;
         }
     } else if (**u == 0xE0) { // 3-byte UTF-8 char type 1 of 4
         if (*++(*u) >= 0xA0 && **u <= 0xBF && *++(*u) >= 0x80 && **u <= 0xBF) {
-            return NULL;
+            return JG_OK;
         }
     } else if (**u >= 0xE1 && **u <= 0xEC) { // 3-byte UTF-8 char type 2 of 4
         if (*++(*u) >= 0x80 && **u <= 0xBF && *++(*u) >= 0x80 && **u <= 0xBF) {
-            return NULL;
+            return JG_OK;
         }
     } else if (**u == 0xED) { // 3-byte UTF-8 char type 3 of 4
         if (*++(*u) >= 0x80 && **u <= 0x9F && *++(*u) >= 0x80 && **u <= 0xBF) {
-            return NULL;
+            return JG_OK;
         }
     } else if (**u == 0xEE || **u == 0xEF) { // 3-byte UTF-8 char type 4 of 4
         if (*++(*u) >= 0x80 && **u <= 0xBF && *++(*u) >= 0x80 && **u <= 0xBF) {
-            return NULL;
+            return JG_OK;
         }
     } else if (**u == 0xF0) { // 4-byte UTF-8 char type 1 of 3
         if (*++(*u) >= 0x90 && **u <= 0xBF && *++(*u) >= 0x80 && **u <= 0xBF &&
             *++(*u) >= 0x80 && **u <= 0xBF) {
-            return NULL;
+            return JG_OK;
         }
     } else if (**u >= 0xF1 && **u <= 0xF3) { // 4-byte UTF-8 char type 2 of 3
         if (*++(*u) >= 0x80 && **u <= 0xBF && *++(*u) >= 0x80 && **u <= 0xBF &&
             *++(*u) >= 0x80 && **u <= 0xBF) {
-            return NULL;
+            return JG_OK;
         }
     } else if (**u == 0xF4) { // 4-byte UTF-8 char type 3 of 3
         if (*++(*u) >= 0x80 && **u <= 0x8F && *++(*u) >= 0x80 && **u <= 0xBF &&
             *++(*u) >= 0x80 && **u <= 0xBF) {
-            return NULL;
+            return JG_OK;
         }
     }
-    static char const e[] = "String contains invalid UTF-8 byte sequence.";
-    return e;
+    return JG_E_PARSE_STR_UTF8_INVALID;
 }
 
 // parse_element() prototype needed here due to mutual recursion
-static char const * parse_element(
+static jg_ret parse_element(
     uint8_t const * * u,
     struct jg_val * v
 );
 
-static char const * parse_string(
+static jg_ret parse_string(
     uint8_t const * * u,
     struct jg_val * v
 ) {
     uint8_t const * const str = *u + 1;
     for (;;) {
         if (*++(*u) < ' ') {
-            static char const e[] = "Control characters (U+0000 through "
-                "U+001F) in JSON strings must be escaped (e.g., \"\\n\").";
-            return e;
+            return JG_E_PARSE_STR_UNESC_CONTROL;
         }
         switch (**u) {
         case '"':
             v->type = JG_TYPE_STRING;
             v->str = str;
             v->byte_c = *u - str;
-            return NULL;
+            return JG_OK;
         case '\\':
             switch (*++(*u)) {
             case 'b': case 't': case 'n': case 'f': case 'r': case '"':
@@ -203,18 +183,13 @@ static char const * parse_string(
                     (**u > '9' && **u < 'A') || (**u > 'F' && **u < 'a') ||
                     *++(*u) < '0' || **u > 'f' ||
                     (**u > '9' && **u < 'A') || (**u > 'F' && **u < 'a')) {
-                    static char const e[] = "Invalid hexadecimal UTF-16 code "
-                        "point sequence following \\u escape sequence.";
-                    return e;
+                    return JG_E_PARSE_STR_UTF16_INVALID;
                 }
                 // check surrogate pair range: \uD800 through \uDFFF
                 if (((*u)[-3] == 'D' || (*u)[-3] == 'd') && (*u)[-2] > '7') {
                     // check high surrogate pair range: \uDC00 through \uDFFF
                     if ((*u)[-2] > 'B' && (*u)[-2] != 'a' && (*u)[-2] != 'b') {
-                        static char const e[] = "UTF-16 high surrogate "
-                            "(\\uDC00 through \\uDFFF) not preceded by UTF-16 "
-                            "low surrogate (\\uD800 through \\uDBFF).";
-                        return e;
+                        return JG_E_PARSE_STR_UTF16_UNPAIRED_HIGH;
                     }
                     // verify that the low surrogate is followed by a high one
                     if (*++(*u) != '/' ||
@@ -231,20 +206,12 @@ static char const * parse_string(
                             **u > 'f' ||
                             (**u > '9' && **u < 'A') ||
                             (**u > 'F' && **u < 'a')) {
-                        static char const e[] = "UTF-16 low surrogate "
-                            "(\\uD800 through \\uDBFF) not followed by UTF-16 "
-                            "high surrogate (\\uDC00 through \\uDFFF).";
-                        return e;
+                        return JG_E_PARSE_STR_UTF16_UNPAIRED_LOW;
                     }
                 }
                 continue;
             default:
-                {
-                    static char const e[] = "The backslash escape character "
-                        "may only be followed by '\\', '/', ' ', '\"', 'b', "
-                        "'f', 'n', 'r', 't', or 'u'.";
-                    return e;
-                }
+                return JG_E_PARSE_STR_ESC_INVALID;
             }
         default:
             if (**u > 0x7F) {
@@ -254,7 +221,7 @@ static char const * parse_string(
     }
 }
 
-static char const * parse_array(
+static jg_ret parse_array(
     uint8_t const * * u,
     struct jg_val * v
 ) {
@@ -265,20 +232,16 @@ static char const * parse_array(
         v->val_c++;
     } while (**u == ',');
     if (**u != ']') {
-        static char const e[] = "Array elements should be followed by a "
-            "comma (',') or a closing bracket (']').";
-        return e;
+        return JG_E_PARSE_ARR_INVALID_SEP;
     }
     v->type = JG_TYPE_ARRAY;
     if (!v->val_c) {
-        return NULL;
+        return JG_OK;
     }
     *u = u_backup;
     v->arr = calloc(v->val_c, sizeof(struct jg_val));
     if (!v->arr) {
-        static char const e[] =
-            "unsuccessful calloc(v->val_c, sizeof(struct jg_val))";
-        return e;
+        return JG_E_LIB_CALLOC;
     }
     for (struct jg_val * elem = v->arr; elem < v->arr + v->val_c; elem++) {
         (*u)++; // skip '[' or ',' (already checked, so must return true)
@@ -286,10 +249,10 @@ static char const * parse_array(
         (*u)++; // skip last character of the element parsed
         skip_any_whitespace(u, NULL);
     }
-    return NULL;
+    return JG_OK;
 }
 
-static char const * parse_object(
+static jg_ret parse_object(
     uint8_t const * * u,
     struct jg_val * v
 ) {
@@ -298,15 +261,11 @@ static char const * parse_object(
         (*u)++;
         skip_any_whitespace(u, NULL);
         if (**u != '"') {
-            static char const e[] = "The key of a key-value pair should be a "
-                "string.";
-            return e;
+            return JG_E_PARSE_OBJ_INVALID_KEY;
         }
         skip_string(u, NULL);
         if (**u != ':') {
-            static char const e[] = "The key and value of a key-value pair "
-                "should be separated by a hyphen (':').";
-            return e;
+            return JG_E_PARSE_OBJ_KEYVAL_INVALID_SEP;
         }
         (*u)++;
         skip_any_whitespace(u, NULL);
@@ -314,20 +273,16 @@ static char const * parse_object(
         v->keyval_c++;
     } while (**u == ',');
     if (**u != '}') {
-        static char const e[] = "Key-value pairs should be followed by a "
-            "comma (',') or a closing brace ('}').";
-        return e;
+        return JG_E_PARSE_OBJ_INVALID_SEP;
     }
     v->type = JG_TYPE_OBJECT;
     if (!v->keyval_c) {
-        return NULL;
+        return JG_OK;
     }
     *u = u_backup;
     v->obj = calloc(v->keyval_c, sizeof(struct jg_keyval));
     if (!v->obj) {
-        static char const e[] =
-            "unsuccessful calloc(v->keyval_c, sizeof(struct jg_keyval))";
-        return e;
+        return JG_E_LIB_CALLOC;
     }
     for (struct jg_keyval * kv = v->obj; kv < v->obj + v->keyval_c; kv++) {
         (*u)++; // skip '{' or ',' (already checked, so must return true)
@@ -337,12 +292,12 @@ static char const * parse_object(
         (*u)++; // skip last character of the value element parsed
         skip_any_whitespace(u, NULL);
     }
-    return NULL;
+    return JG_OK;
 }
 
 // Any value parsed by parse_element() has already been skipped over before, so
 // all parse_...() calls below can be called safely without u_over checks.
-static char const * parse_element(
+static jg_ret parse_element(
     uint8_t const * * u,
     struct jg_val * v
 ) {
@@ -364,17 +319,14 @@ static char const * parse_element(
     case '{':
         return parse_object(u, v);
     default:
-        {
-            static char const e[] = "Unrecognized JSON symbol.";
-            return e;
-        }
+        return JG_E_PARSE_INVALID_TYPE;
     }
 }
 
 // According to https://tools.ietf.org/html/rfc8259 (the current JSON spec at
 // the time of writing), any type of JSON value (i.e., string, number, array,
 // object, true, false, or null) is also valid at the root level.
-static char const * parse_root(
+static jg_ret parse_root(
     uint8_t const * * u,
     uint8_t const * const u_over,
     struct jg_val * v
@@ -410,26 +362,81 @@ static char const * parse_root(
         // ...because parse_array() doesn't check u_over.
         return parse_object(u, v);
     default:
-        {
-            static char const e[] = "Unrecognized JSON symbol.";
-            return e;
-        }
+        return JG_E_PARSE_INVALID_TYPE;
     }
 }
 
-char const * jg_parse_str(
+static jg_ret jg_parse_str(
+    jg_t * jg,
     char const * json_str,
-    size_t byte_size,
-    struct jg_val * v
+    uint32_t byte_size
 ) {
-    char const * e = parse_root(
-        (uint8_t const * *) &json_str,
-        (uint8_t const *) json_str + byte_size,
-        v
-    );
-    if (!e) {
-        return NULL;
+    uint8_t const * u = (uint8_t const * ) json_str;
+    jg->ret = parse_root(&u, u + byte_size, &jg->root_val);
+    jg->json_str_i = u - (uint8_t const * ) json_str;
+    return jg->ret;
+}
+
+jg_ret jg_parse_str_copy(
+    jg_t * jg,
+    char const * json_str,
+    size_t byte_size
+) {
+    if (jg->json_str) {
+        free(jg->json_str);
     }
-    // todo: add JSON string context to the error string here
-    return e;
+    jg->json_str = malloc(byte_size);
+    if (!jg->json_str) {
+        return JG_E_LIB_MALLOC;
+    }
+    memcpy(jg->json_str, json_str, byte_size);
+    return jg_parse_str(jg, jg->json_str, byte_size);
+}
+
+jg_ret jg_parse_str_no_copy(
+    jg_t * jg,
+    char const * json_str,
+    size_t byte_size
+) {
+    if (jg->json_str) {
+        free(jg->json_str);
+    }
+    jg->json_str = NULL;
+    return jg_parse_str(jg, json_str, byte_size);
+}
+
+jg_ret jg_parse_file(
+    jg_t * jg,
+    char const * filename
+) {
+    FILE * f = fopen(filename, "r");
+    if (!f) {
+        return JG_E_LIB_FOPEN;
+    }
+    if (fseeko(f, 0, SEEK_END) == -1) {
+        return JG_E_LIB_FSEEKO;
+    }
+    uint32_t size = 0;
+    {
+        off_t _size = ftello(f);
+        if (_size < 0) {
+            return JG_E_LIB_FTELLO;
+        }
+        if (size > UINT32_MAX) {
+            return JG_E_JSON_TOO_LARGE;
+        }
+        size = (uint32_t) _size;
+    }
+    rewind(f);
+    jg->json_str = malloc(size);
+    if (!jg->json_str) {
+        return JG_E_LIB_MALLOC;
+    }
+    if (fread(jg->json_str, 1, size, f) != size) {
+        return JG_E_LIB_FREAD;
+    }
+    if (fclose(f)) {
+        return JG_E_LIB_FCLOSE;
+    }
+    return jg_parse_str(jg, jg->json_str, size);
 }
