@@ -48,8 +48,8 @@ clean:
 install:
 	cp $(SRC_DIR)/$(SYSTEM_HEADER) $(INCLUDE_DIR)/ && \
 		cp $(SONAME_VLONG) $(DLL_DIR)/ && \
-		ln -s $(SONAME_VLONG) $(DLL_DIR)/$(SONAME_VSHORT) && \
-		ln -s $(SONAME_VSHORT) $(DLL_DIR)/$(SONAME_VNONE)
+		ln -fs $(SONAME_VLONG) $(DLL_DIR)/$(SONAME_VSHORT) && \
+		ln -fs $(SONAME_VSHORT) $(DLL_DIR)/$(SONAME_VNONE)
 
 .PHONY: uninstall
 uninstall:
