@@ -102,13 +102,13 @@ char const * jg_get_err_str(
 jg_ret jg_parse_str(
     jg_t * jg,
     char const * json_str,
-    size_t byte_size
+    size_t byte_c
 );
 
 jg_ret jg_parse_str_no_copy(
     jg_t * jg,
     char const * json_str,
-    size_t byte_size
+    size_t byte_c
 );
 
 jg_ret jg_parse_file(

@@ -116,17 +116,18 @@ char const * jg_get_err_str(
     }
     size_t line_i = 1;
     size_t char_i = 1;
-    uint8_t const * err_line = jg->son_str;
+    uint8_t const * err_line = jg->json_str;
     for (uint8_t const * u = err_line; u < jg->json_cur;) {
         if (*u == '\n') {
             line_i++;
             char_i = 1;
             err_line = ++u;
-        } else if (*u++ & 0xC0 != 0x80) { // If *u != 0b10XXXXXX
-            char_i++; // Only count UTF-8 non-continuation bytes
+        } else {
+            // Only count UTF-8 non-continuation bytes (*u != 0b10XXXXXX)
+            char_i += (*u++ & 0xC0) != 0x80;
         }
     }
-    snprintf("Line %zu, char %zu: %s\n%s",
-        line_i, char_i, static_err_str, context_str);
-    return static_err_str;
+    //snprintf("Line %zu, char %zu: %s\n%s",
+    //    line_i, char_i, static_err_str, context_str);
+    return jg->err_str = static_err_str;
 }

@@ -450,10 +450,10 @@ static jg_ret parse_element(
 // object, true, false, or null) is also valid at the root level.
 static jg_ret parse_root(
     jg_t * jg,
-    size_t byte_size
+    size_t byte_c
 ) {
     jg->json_cur = jg->json_str;
-    uint8_t const * const u_over = jg->json_cur + byte_size;
+    uint8_t const * const u_over = jg->json_cur + byte_c;
     skip_any_whitespace(&jg->json_cur, u_over);
     switch (*jg->json_cur) {
     case '"':
@@ -491,27 +491,27 @@ static jg_ret parse_root(
 jg_ret jg_parse_str(
     jg_t * jg,
     char const * json_str,
-    size_t byte_size
+    size_t byte_c
 ) {
     free_json_str(jg);
-    uint8_t * json_str_copy = malloc(byte_size);
+    uint8_t * json_str_copy = malloc(byte_c);
     if (!json_str_copy) {
         return jg->ret = JG_E_MALLOC;
     }
-    memcpy(json_str_copy, json_str, byte_size);
+    memcpy(json_str_copy, json_str, byte_c);
     jg->json_str = json_str_copy;
     jg->json_str_needs_free = true;
-    return jg->ret =  parse_root(jg, byte_size);
+    return jg->ret =  parse_root(jg, byte_c);
 }
 
 jg_ret jg_parse_str_no_copy(
     jg_t * jg,
     char const * json_str,
-    size_t byte_size
+    size_t byte_c
 ) {
     free_json_str(jg);
     jg->json_str = (uint8_t const *) json_str;
-    return jg->ret =  parse_root(jg, byte_size);
+    return jg->ret =  parse_root(jg, byte_c);
 }
 
 jg_ret jg_parse_file(
@@ -528,21 +528,21 @@ jg_ret jg_parse_file(
         jg->errnum = errno;
         return jg->ret = JG_E_ERRNO_FSEEKO;
     }
-    size_t byte_size = 0;
+    size_t byte_c = 0;
     {
         off_t size = ftello(f);
         if (size < 0) {
             jg->errnum = errno;
             return jg->ret = JG_E_ERRNO_FTELLO;
         }
-        byte_size = (size_t) size;
+        byte_c = (size_t) size;
     }
     rewind(f);
-    uint8_t * json_str = malloc(byte_size);
+    uint8_t * json_str = malloc(byte_c);
     if (!json_str) {
         return jg->ret = JG_E_MALLOC;
     }
-    if (fread(json_str, 1, byte_size, f) != byte_size) {
+    if (fread(json_str, 1, byte_c, f) != byte_c) {
         free(json_str);
         return jg->ret = JG_E_FREAD;
     }
@@ -553,5 +553,5 @@ jg_ret jg_parse_file(
     }
     jg->json_str = json_str;
     jg->json_str_needs_free = true;
-    return jg->ret = parse_root(jg, byte_size);
+    return jg->ret = parse_root(jg, byte_c);
 }
