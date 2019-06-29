@@ -99,7 +99,7 @@ char const * jg_get_err_str(
     jg_t * jg
 );
 
-jg_ret jg_parse_str_copy(
+jg_ret jg_parse_str(
     jg_t * jg,
     char const * json_str,
     size_t byte_size
