@@ -327,40 +327,40 @@ static jg_ret parse_element(
 // the time of writing), any type of JSON value (i.e., string, number, array,
 // object, true, false, or null) is also valid at the root level.
 static jg_ret parse_root(
-    uint8_t const * * u,
-    uint8_t const * const u_over,
-    struct jg_val * v
+    jg_t * jg,
+    size_t byte_size
 ) {
-    skip_any_whitespace(u, u_over);
-    uint8_t const * const u_backup = *u;
-    switch (**u) {
+    jg->json_cur = jg->json_str;
+    uint8_t const * const u_over = jg->json_cur + byte_size;
+    skip_any_whitespace(&jg->json_cur, u_over);
+    switch (*jg->json_cur) {
     case '"':
         // Make sure the JSON string contains a complete string type...
-        JG_GUARD(skip_string(u, u_over));
-        *u = u_backup;
+        JG_GUARD(skip_string(&jg->json_cur, u_over));
+        jg->json_cur = jg->json_str;
         // ...because parse_string() doesn't check u_over.
-        return parse_string(u, v);
+        return parse_string(&jg->json_cur, &jg->root_val);
     case '-': case '0': case '1': case '2': case '3': case '4': case '5':
     case '6': case '7': case '8': case '9':
-        return parse_number(u, u_over, v);
+        return parse_number(&jg->json_cur, u_over, &jg->root_val);
     case '[':
         // make sure the JSON string contains a complete root array...
-        JG_GUARD(skip_array(u, u_over));
-        *u = u_backup;
+        JG_GUARD(skip_array(&jg->json_cur, u_over));
+        jg->json_cur = jg->json_str;
         // ...because parse_array() doesn't check u_over.
-        return parse_array(u, v);
+        return parse_array(&jg->json_cur, &jg->root_val);
     case 'f':
-        return parse_false(u, u_over, v);
+        return parse_false(&jg->json_cur, u_over, &jg->root_val);
     case 'n':
-        return parse_null(u, u_over, v);
+        return parse_null(&jg->json_cur, u_over, &jg->root_val);
     case 't':
-        return parse_true(u, u_over, v);
+        return parse_true(&jg->json_cur, u_over, &jg->root_val);
     case '{':
         // make sure the JSON string contains a complete root object...
-        JG_GUARD(skip_object(u, u_over));
-        *u = u_backup;
+        JG_GUARD(skip_object(&jg->json_cur, u_over));
+        jg->json_cur = jg->json_str;
         // ...because parse_array() doesn't check u_over.
-        return parse_object(u, v);
+        return parse_object(&jg->json_cur, &jg->root_val);
     default:
         return JG_E_PARSE_INVALID_TYPE;
     }
@@ -372,14 +372,13 @@ jg_ret jg_parse_str(
     size_t byte_size
 ) {
     free_json_str(jg);
-    jg->json_str = jg->json_err = malloc(byte_size);
+    jg->json_str = malloc(byte_size);
     if (!jg->json_str) {
         return jg->ret = JG_E_MALLOC;
     }
     memcpy(jg->json_str, json_str, byte_size);
     jg->json_str_needs_free = true;
-    return jg->ret =  parse_root((const uint8_t * *) &jg->json_err,
-        jg->json_str + byte_size, &jg->root_val);
+    return jg->ret =  parse_root(jg, byte_size);
 }
 
 jg_ret jg_parse_str_no_copy(
@@ -388,9 +387,8 @@ jg_ret jg_parse_str_no_copy(
     size_t byte_size
 ) {
     free_json_str(jg);
-    jg->json_str = jg->json_err = (uint8_t *) json_str;
-    return jg->ret =  parse_root((const uint8_t * *) &jg->json_err,
-        jg->json_str + byte_size, &jg->root_val);
+    jg->json_str = (uint8_t *) json_str;
+    return jg->ret =  parse_root(jg, byte_size);
 }
 
 jg_ret jg_parse_file(
@@ -417,7 +415,7 @@ jg_ret jg_parse_file(
         byte_size = (size_t) size;
     }
     rewind(f);
-    jg->json_str = jg->json_err = malloc(byte_size);
+    jg->json_str = malloc(byte_size);
     if (!jg->json_str) {
         return jg->ret = JG_E_MALLOC;
     }
@@ -429,6 +427,5 @@ jg_ret jg_parse_file(
         return jg->ret = JG_E_ERRNO_FCLOSE;
     }
     jg->json_str_needs_free = true;
-    return jg->ret =  parse_root((const uint8_t * *) &jg->json_err,
-        jg->json_str + byte_size, &jg->root_val);
+    return jg->ret =  parse_root(jg, byte_size);
 }

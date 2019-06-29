@@ -7,8 +7,8 @@
 
 struct jg_opaque { // Usually 16 + (8 + 8) + (8 + (4 + (2 + (1 + 1))) = 48 bytes
     struct jg_val root_val;
-    uint8_t * json_str; // points to the start of the JSON string being parsed
-    uint8_t * json_err; // points to either the error position or end of js_str
+    uint8_t * json_str; // the start of the JSON string to be parsed
+    uint8_t const * json_cur; // current parsing position within json_str
     char * err_str;
     int errnum;
     uint16_t ret; // jg_ret as a uint16_t
