@@ -95,7 +95,7 @@ void jg_free(
     jg_t * jg
 );
 
-char * jg_get_err_str(
+char const * jg_get_err_str(
     jg_t * jg
 );
 

@@ -4,8 +4,8 @@
 #define _POSIX_C_SOURCE 201112L // ftello() and fseeko()'s off_t
 #define _FILE_OFFSET_BITS 64 // Ensure off_t is 64 bits (possibly redundant)
 
-#include "jg_opaque.h"
 #include "jg_skip.h"
+#include "jg_util.h"
 
 static jg_ret parse_false(
     uint8_t const * * u,
@@ -368,12 +368,11 @@ static jg_ret parse_root(
 
 static jg_ret jg_parse_str(
     jg_t * jg,
-    char const * json_str,
     size_t byte_size
 ) {
-    uint8_t const * u = (uint8_t const * ) json_str;
+    uint8_t const * u = jg->json_str;
     jg->ret = parse_root(&u, u + byte_size, &jg->root_val);
-    jg->json_str_i = u - (uint8_t const * ) json_str;
+    jg->json_str_i = u - jg->json_str;
     return jg->ret;
 }
 
@@ -382,15 +381,14 @@ jg_ret jg_parse_str_copy(
     char const * json_str,
     size_t byte_size
 ) {
-    if (jg->json_str) {
-        free(jg->json_str);
-    }
+    free_json_str(jg);
     jg->json_str = malloc(byte_size);
     if (!jg->json_str) {
         return jg->ret = JG_E_MALLOC;
     }
     memcpy(jg->json_str, json_str, byte_size);
-    return jg_parse_str(jg, jg->json_str, byte_size);
+    jg->json_str_needs_free = true;
+    return jg_parse_str(jg, byte_size);
 }
 
 jg_ret jg_parse_str_no_copy(
@@ -398,17 +396,16 @@ jg_ret jg_parse_str_no_copy(
     char const * json_str,
     size_t byte_size
 ) {
-    if (jg->json_str) {
-        free(jg->json_str);
-    }
-    jg->json_str = NULL;
-    return jg_parse_str(jg, json_str, byte_size);
+    free_json_str(jg);
+    jg->json_str = (uint8_t *) json_str;
+    return jg_parse_str(jg, byte_size);
 }
 
 jg_ret jg_parse_file(
     jg_t * jg,
     char const * filepath
 ) {
+    free_json_str(jg);
     FILE * f = fopen(filepath, "r");
     if (!f) {
         jg->errnum = errno;
@@ -439,5 +436,6 @@ jg_ret jg_parse_file(
         jg->errnum = errno;
         return jg->ret = JG_E_ERRNO_FCLOSE;
     }
-    return jg_parse_str(jg, jg->json_str, size);
+    jg->json_str_needs_free = true;
+    return jg_parse_str(jg, size);
 }

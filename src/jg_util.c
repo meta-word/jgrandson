@@ -3,7 +3,7 @@
 
 #define _POSIX_C_SOURCE 201112L // newlocale()
 
-#include "jg_opaque.h"
+#include "jg_util.h"
 
 #include <locale.h> // newlocale()
 
@@ -57,6 +57,26 @@ static char const * err_strs[] = {
        "('}')"
 };
 
+void free_json_str(
+    jg_t * jg
+) {
+    if (jg->json_str_needs_free) {
+        free(jg->json_str);
+        jg->json_str = NULL;
+        jg->json_str_needs_free = false;
+    }
+}
+
+static void free_err_str(
+    jg_t * jg
+) {
+    if (jg->err_str_needs_free) {
+        free(jg->err_str);
+        jg->err_str = NULL;
+        jg->err_str_needs_free = false;
+    }
+}
+
 jg_t * jg_init(
     void
 ) {
@@ -69,35 +89,35 @@ void jg_free(
     (void) jg; // todo
 }
 
-char * jg_get_err_str(
+char const * jg_get_err_str(
     jg_t * jg
 ) {
-    if (jg->err_str_is_on_heap) {
-        free(jg->err_str);
-        jg->err_str = NULL;
-        jg->err_str_is_on_heap = false;
-    }
-    char * static_err_str = (char *) err_strs[jg->ret];
+    free_err_str(jg);
+    char const * static_err_str = err_strs[jg->ret];
     if (jg->ret <= JG_E_FREAD) {
-        return jg->err_str = static_err_str;
+        jg->err_str = (char *) static_err_str;
+        return static_err_str;
     }
     if (jg->ret <= JG_E_ERRNO_FTELLO) {
         // Retrieve and append the errno's string representation
         locale_t loc = newlocale(LC_ALL, "", (locale_t) 0);
         if (loc == (locale_t) 0) {
-            return jg->err_str = (char *) err_strs[jg->ret = JG_E_NEWLOCALE];
+            static_err_str = err_strs[jg->ret = JG_E_NEWLOCALE];
+            jg->err_str = (char *) static_err_str;
+            return static_err_str;
         }
         char * errno_str = strerror_l(jg->errnum, loc); // thread-safe
         freelocale(loc);
-        jg->err_str = malloc(strlen(static_err_str) + strlen(errno_str) + 1);
-        if (!jg->err_str) {
-            return jg->err_str = (char *) err_strs[jg->ret = JG_E_MALLOC];
+        char * err_str = malloc(strlen(static_err_str) + strlen(errno_str) + 1);
+        if (!err_str) {
+            static_err_str = err_strs[jg->ret = JG_E_MALLOC];
+            jg->err_str = (char *) static_err_str;
+            return static_err_str;
         }
-        jg->err_str_is_on_heap = true;
-        strcpy(jg->err_str, static_err_str);
-        strcpy(jg->err_str + strlen(static_err_str), errno_str);
-        return jg->err_str;
+        strcpy(err_str, static_err_str);
+        strcpy(err_str + strlen(static_err_str), errno_str);
+        jg->err_str_needs_free = true;
+        return jg->err_str = err_str;
     }
-    // todo: add error context for parse errors
     return static_err_str;
 }
