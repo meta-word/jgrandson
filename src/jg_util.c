@@ -1,22 +1,26 @@
 // SPDX-License-Identifier: MIT
 // Copyright © 2019 William Budd
 
+#define _POSIX_C_SOURCE 201112L // newlocale()
+
 #include "jg_opaque.h"
 
-// The indices to err_msgs match the enum values of jg_ret
-static char const * err_msgs[] = {
+#include <locale.h> // newlocale()
+
+// The indices to err_strs match the enum values of jg_ret
+static char const * err_strs[] = {
 /*00*/ "Success (no error occurred)",
-       // external library errors
-/*01*/ "Unsuccessful fopen()",
-/*02*/ "Unsuccessful fclose()",
-/*03*/ "Unsuccessful fread()",
-/*04*/ "Unsuccessful fseeko(..., SEEK_END)",
-/*05*/ "Unsuccessful ftello()",
-/*06*/ "Unsuccessful malloc()",
-/*07*/ "Unsuccessful calloc()",
-       // internal error
-/*08*/ "Jgrandson currently doesn't support JSON files/strings larger than 4GB",
-       // parsing errors
+       // external errors without errno
+/*01*/ "Unsuccessful malloc()",
+/*02*/ "Unsuccessful calloc()",
+/*03*/ "Unsuccessful newlocale()",
+/*04*/ "Unsuccessful fread()",
+       // external errors with errno
+/*05*/ "Unsuccessful fopen(): ",
+/*06*/ "Unsuccessful fclose(): ",
+/*07*/ "Unsuccessful fseeko(..., SEEK_END): ",
+/*08*/ "Unsuccessful ftello(): ",
+       // parsing errors (i.e., with JSON string context)
 /*09*/ "Invalid JSON type",
 /*10*/ "Unterminated string: closing double-quote ('\"') not found",
 /*11*/ "Unterminated array: closing square bracket (']') not found",
@@ -65,8 +69,35 @@ void jg_free(
     (void) jg; // todo
 }
 
-char const * jg_get_err_msg(
+char * jg_get_err_str(
     jg_t * jg
 ) {
-    return err_msgs[jg->ret]; // todo: add error context if parse error
+    if (jg->err_str_is_on_heap) {
+        free(jg->err_str);
+        jg->err_str = NULL;
+        jg->err_str_is_on_heap = false;
+    }
+    char * static_err_str = (char *) err_strs[jg->ret];
+    if (jg->ret <= JG_E_FREAD) {
+        return jg->err_str = static_err_str;
+    }
+    if (jg->ret <= JG_E_ERRNO_FTELLO) {
+        // Retrieve and append the errno's string representation
+        locale_t loc = newlocale(LC_ALL, "", (locale_t) 0);
+        if (loc == (locale_t) 0) {
+            return jg->err_str = (char *) err_strs[jg->ret = JG_E_NEWLOCALE];
+        }
+        char * errno_str = strerror_l(jg->errnum, loc); // thread-safe
+        freelocale(loc);
+        jg->err_str = malloc(strlen(static_err_str) + strlen(errno_str) + 1);
+        if (!jg->err_str) {
+            return jg->err_str = (char *) err_strs[jg->ret = JG_E_MALLOC];
+        }
+        jg->err_str_is_on_heap = true;
+        strcpy(jg->err_str, static_err_str);
+        strcpy(jg->err_str + strlen(static_err_str), errno_str);
+        return jg->err_str;
+    }
+    // todo: add error context for parse errors
+    return static_err_str;
 }

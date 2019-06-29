@@ -5,9 +5,12 @@
 
 #include "jgrandson.h"
 
-struct jg_opaque { // 32 bytes total in most cases
+struct jg_opaque { // Usually 16 + (8 + 8) + (8 + (4 + (2 + 2))) = 48 bytes
     struct jg_val root_val;
     char * json_str;
-    uint32_t json_str_i; // index to json_str to get context for parsing errors
-    uint32_t ret; // jg_ret as a uint32_t
+    char * err_str;
+    size_t json_str_i;
+    int errnum;
+    uint16_t ret; // jg_ret as a uint16_t
+    uint16_t err_str_is_on_heap; // boolean
 };

@@ -241,7 +241,7 @@ static jg_ret parse_array(
     *u = u_backup;
     v->arr = calloc(v->val_c, sizeof(struct jg_val));
     if (!v->arr) {
-        return JG_E_LIB_CALLOC;
+        return JG_E_CALLOC;
     }
     for (struct jg_val * elem = v->arr; elem < v->arr + v->val_c; elem++) {
         (*u)++; // skip '[' or ',' (already checked, so must return true)
@@ -282,7 +282,7 @@ static jg_ret parse_object(
     *u = u_backup;
     v->obj = calloc(v->keyval_c, sizeof(struct jg_keyval));
     if (!v->obj) {
-        return JG_E_LIB_CALLOC;
+        return JG_E_CALLOC;
     }
     for (struct jg_keyval * kv = v->obj; kv < v->obj + v->keyval_c; kv++) {
         (*u)++; // skip '{' or ',' (already checked, so must return true)
@@ -369,7 +369,7 @@ static jg_ret parse_root(
 static jg_ret jg_parse_str(
     jg_t * jg,
     char const * json_str,
-    uint32_t byte_size
+    size_t byte_size
 ) {
     uint8_t const * u = (uint8_t const * ) json_str;
     jg->ret = parse_root(&u, u + byte_size, &jg->root_val);
@@ -387,7 +387,7 @@ jg_ret jg_parse_str_copy(
     }
     jg->json_str = malloc(byte_size);
     if (!jg->json_str) {
-        return jg->ret = JG_E_LIB_MALLOC;
+        return jg->ret = JG_E_MALLOC;
     }
     memcpy(jg->json_str, json_str, byte_size);
     return jg_parse_str(jg, jg->json_str, byte_size);
@@ -407,36 +407,37 @@ jg_ret jg_parse_str_no_copy(
 
 jg_ret jg_parse_file(
     jg_t * jg,
-    char const * filename
+    char const * filepath
 ) {
-    FILE * f = fopen(filename, "r");
+    FILE * f = fopen(filepath, "r");
     if (!f) {
-        return jg->ret = JG_E_LIB_FOPEN;
+        jg->errnum = errno;
+        return jg->ret = JG_E_ERRNO_FOPEN;
     }
     if (fseeko(f, 0, SEEK_END) == -1) {
-        return jg->ret = JG_E_LIB_FSEEKO;
+        jg->errnum = errno;
+        return jg->ret = JG_E_ERRNO_FSEEKO;
     }
-    uint32_t size = 0;
+    size_t size = 0;
     {
         off_t _size = ftello(f);
         if (_size < 0) {
-            return jg->ret = JG_E_LIB_FTELLO;
+            jg->errnum = errno;
+            return jg->ret = JG_E_ERRNO_FTELLO;
         }
-        if (size > UINT32_MAX) {
-            return jg->ret = JG_E_JSON_TOO_LARGE;
-        }
-        size = (uint32_t) _size;
+        size = (size_t) _size;
     }
     rewind(f);
     jg->json_str = malloc(size);
     if (!jg->json_str) {
-        return jg->ret = JG_E_LIB_MALLOC;
+        return jg->ret = JG_E_MALLOC;
     }
     if (fread(jg->json_str, 1, size, f) != size) {
-        return jg->ret = JG_E_LIB_FREAD;
+        return jg->ret = JG_E_FREAD;
     }
     if (fclose(f)) {
-        return jg->ret = JG_E_LIB_FCLOSE;
+        jg->errnum = errno;
+        return jg->ret = JG_E_ERRNO_FCLOSE;
     }
     return jg_parse_str(jg, jg->json_str, size);
 }

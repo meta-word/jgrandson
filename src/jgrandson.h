@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <errno.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -14,14 +15,14 @@ typedef struct jg_opaque jg_t;
 
 typedef enum {
     JG_OK = 0,
-    JG_E_LIB_FOPEN = 1,
-    JG_E_LIB_FCLOSE = 2,
-    JG_E_LIB_FREAD = 3,
-    JG_E_LIB_FSEEKO = 4,
-    JG_E_LIB_FTELLO = 5,
-    JG_E_LIB_MALLOC = 6,
-    JG_E_LIB_CALLOC = 7,
-    JG_E_JSON_TOO_LARGE = 8,
+    JG_E_MALLOC = 1,
+    JG_E_CALLOC = 2,
+    JG_E_NEWLOCALE = 3,
+    JG_E_FREAD = 4,
+    JG_E_ERRNO_FOPEN = 5,
+    JG_E_ERRNO_FCLOSE = 6,
+    JG_E_ERRNO_FSEEKO = 7,
+    JG_E_ERRNO_FTELLO = 8,
     JG_E_PARSE_INVALID_TYPE = 9,
     JG_E_PARSE_UNTERM_STR = 10,
     JG_E_PARSE_UNTERM_ARR = 11,
@@ -94,7 +95,7 @@ void jg_free(
     jg_t * jg
 );
 
-char const * jg_get_err_msg(
+char * jg_get_err_str(
     jg_t * jg
 );
 
@@ -112,5 +113,5 @@ jg_ret jg_parse_str_no_copy(
 
 jg_ret jg_parse_file(
     jg_t * jg,
-    char const * filename
+    char const * filepath
 );
