@@ -4,8 +4,130 @@
 #define _POSIX_C_SOURCE 201112L // ftello() and fseeko()'s off_t
 #define _FILE_OFFSET_BITS 64 // Ensure off_t is 64 bits (possibly redundant)
 
-#include "jg_skip.h"
+#include "jgrandson.h"
 #include "jg_util.h"
+
+static void skip_any_whitespace(
+    uint8_t const * * u,
+    uint8_t const * const u_over
+) {
+    for (; *u < u_over; (*u)++) {
+        if (**u != ' ' && **u != '\n' && **u != '\t' && **u != '\r') {
+            return;
+        }
+    }
+}
+
+// The next 3 skip_X() functions increment the *u pointer until either of
+// the following conditions occur:
+//
+// (1) A character marking the termination of X is encountered; after which
+//     *u is incremented the remaining bytes needed to point to the first
+//     non-whitespace character after X, if any. Then return JG_OK.
+//
+// (2) *u reaches *u_over; i.e., the end of the JSON string is reached
+//     before condition (1) occurs, indicating that X is unterminated.
+//     Return a jg_ret value indicating the unterminated type.
+//
+// Note that no JSON values are validated here. Validation occurs in parse_X()
+// in jg_parse.c
+
+static jg_ret skip_string(
+    uint8_t const * * u,
+    uint8_t const * const u_over
+) {
+    uint8_t const * const u_backup = *u;
+    while (++(*u) < u_over) {
+        if (**u == '"') {
+            (*u)++;
+            skip_any_whitespace(u, u_backup);
+            return JG_OK;
+        }
+        if (**u == '\\') {
+            if (++(*u) >= u_over) {
+                break;
+            }
+        }
+    }
+    *u = u_backup; // Set u to the opening " to provide it as error context.
+    return JG_E_PARSE_UNTERM_STR;
+}
+
+static jg_ret skip_array(
+    uint8_t const * * u,
+    uint8_t const * const u_over
+) {
+    uint8_t const * const u_backup = *u;
+    // If 1st iteration skip {, else skip obj/num/true/false/null/whitespace
+    while (++(*u) < u_over) {
+        switch (**u) {
+        case '"':
+            JG_GUARD(skip_string(u, u_over));
+            continue;
+        case '[':
+            JG_GUARD(skip_array(u, u_over));
+            continue;
+        case ']':
+            (*u)++;
+            skip_any_whitespace(u, u_over);
+            return JG_OK;
+        default:
+            continue;
+        }
+    }
+    *u = u_backup; // Set u to the opening [ to provide it as error context.
+    return JG_E_PARSE_UNTERM_ARR;
+}
+
+static jg_ret skip_object(
+    uint8_t const * * u,
+    uint8_t const * const u_over
+) {
+    uint8_t const * const u_backup = *u;
+    // If 1st iteration skip {, else skip arr/num/true/false/null/whitespace
+    while (++(*u) < u_over) {
+        switch (**u) {
+        case '"':
+            JG_GUARD(skip_string(u, u_over));
+            continue;
+        case '{':
+            JG_GUARD(skip_object(u, u_over));
+            continue;
+        case '}':
+            (*u)++;
+            skip_any_whitespace(u, u_over);
+            return JG_OK;
+        default:
+            continue;
+        }
+    }
+    *u = u_backup; // Set u to the opening { to provide it as error context.
+    return JG_E_PARSE_UNTERM_OBJ;
+}
+
+// Any value skipped by skip_element() has already been skipped over before, so
+// all skip_...() calls below can be called safely without u_over checks.
+static void skip_element(
+    uint8_t const * * u
+) {
+    skip_any_whitespace(u, NULL);
+    switch (**u) {
+    case '"':
+        skip_string(u, NULL);
+        return;
+    case '[':
+        skip_array(u, NULL);
+        return;
+    case '{':
+        skip_object(u, NULL);
+        return;
+    default:
+        while (**u != ',' && **u != ']' && **u != '}') {
+            // skip number/true/false/null/whitespace
+            (*u)++;
+        }
+    }
+}
 
 static jg_ret parse_false(
     uint8_t const * * u,
