@@ -372,11 +372,12 @@ jg_ret jg_parse_str(
     size_t byte_size
 ) {
     free_json_str(jg);
-    jg->json_str = malloc(byte_size);
-    if (!jg->json_str) {
+    uint8_t * json_str_copy = malloc(byte_size);
+    if (!json_str_copy) {
         return jg->ret = JG_E_MALLOC;
     }
-    memcpy(jg->json_str, json_str, byte_size);
+    memcpy(json_str_copy, json_str, byte_size);
+    jg->json_str = json_str_copy;
     jg->json_str_needs_free = true;
     return jg->ret =  parse_root(jg, byte_size);
 }
@@ -387,7 +388,7 @@ jg_ret jg_parse_str_no_copy(
     size_t byte_size
 ) {
     free_json_str(jg);
-    jg->json_str = (uint8_t *) json_str;
+    jg->json_str = (uint8_t const *) json_str;
     return jg->ret =  parse_root(jg, byte_size);
 }
 
@@ -415,17 +416,20 @@ jg_ret jg_parse_file(
         byte_size = (size_t) size;
     }
     rewind(f);
-    jg->json_str = malloc(byte_size);
-    if (!jg->json_str) {
+    uint8_t * json_str = malloc(byte_size);
+    if (!json_str) {
         return jg->ret = JG_E_MALLOC;
     }
-    if (fread(jg->json_str, 1, byte_size, f) != byte_size) {
+    if (fread(json_str, 1, byte_size, f) != byte_size) {
+        free(json_str);
         return jg->ret = JG_E_FREAD;
     }
     if (fclose(f)) {
+        free(json_str);
         jg->errnum = errno;
         return jg->ret = JG_E_ERRNO_FCLOSE;
     }
+    jg->json_str = json_str;
     jg->json_str_needs_free = true;
-    return jg->ret =  parse_root(jg, byte_size);
+    return jg->ret = parse_root(jg, byte_size);
 }
