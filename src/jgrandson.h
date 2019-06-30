@@ -11,6 +11,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define JG_ELEM_C(array) (sizeof(array) / sizeof((array)[0]))
+#define JG_MIN(a, b) ((a) < (b) ? (a) : (b))
+#define JG_MAX(a, b) ((a) > (b) ? (a) : (b))
+
 typedef struct jg_opaque jg_t;
 
 typedef enum {
@@ -96,7 +100,9 @@ void jg_free(
 );
 
 char const * jg_get_err_str(
-    jg_t * jg
+    jg_t * jg,
+    char const * parse_err_mark_before,
+    char const * parse_err_mark_after
 );
 
 jg_ret jg_parse_str(

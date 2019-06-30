@@ -3,6 +3,12 @@
 
 #define _POSIX_C_SOURCE 201112L // newlocale()
 
+#define JG_CONTEXT_BEFORE_MAX_STRLEN 80
+#define JG_CONTEXT_AFTER_MAX_STRLEN 80
+
+// Is UTF-8 continuation byte (i.e., 0b10XXXXXX) ? 0 : 1
+#define JG_IS_1ST_UTF8_BYTE(byte) (((byte) & 0xC0) != 0x80)
+
 #include "jg_util.h"
 
 #include <locale.h> // newlocale()
@@ -77,6 +83,16 @@ static void free_err_str(
     }
 }
 
+static size_t get_utf8_char_size(
+    uint8_t const * u,
+    uint8_t const * const u_over
+) {
+    if (u >= u_over) return 0;
+    if (++u == u_over || JG_IS_1ST_UTF8_BYTE(*u)) return 1;
+    if (++u == u_over || JG_IS_1ST_UTF8_BYTE(*u)) return 2;
+    return ++u == u_over || JG_IS_1ST_UTF8_BYTE(*u) ? 3 : 4;
+}
+
 jg_t * jg_init(
     void
 ) {
@@ -90,7 +106,9 @@ void jg_free(
 }
 
 char const * jg_get_err_str(
-    jg_t * jg
+    jg_t * jg,
+    char const * parse_err_mark_before,
+    char const * parse_err_mark_after
 ) {
     free_err_str(jg);
     char const * static_err_str = err_strs[jg->ret];
@@ -114,20 +132,65 @@ char const * jg_get_err_str(
         jg->err_str_needs_free = true;
         return jg->err_str = err_str;
     }
+
     size_t line_i = 1;
     size_t char_i = 1;
     uint8_t const * err_line = jg->json_str;
     for (uint8_t const * u = err_line; u < jg->json_cur;) {
-        if (*u == '\n') {
+        switch (*u) {
+        case '\r':
+            if (u + 1 < jg->json_cur && u[1] == '\n') {
+                u++;
+            }
+            // fall through
+        case '\n':
             line_i++;
             char_i = 1;
             err_line = ++u;
-        } else {
-            // Only count UTF-8 non-continuation bytes (*u != 0b10XXXXXX)
-            char_i += (*u++ & 0xC0) != 0x80;
+            continue;
+        default:
+            char_i += JG_IS_1ST_UTF8_BYTE(*u++); // How dare you incr in a macro
         }
     }
-    //snprintf("Line %zu, char %zu: %s\n%s",
-    //    line_i, char_i, static_err_str, context_str);
-    return jg->err_str = static_err_str;
+
+    char context_before[JG_CONTEXT_BEFORE_MAX_STRLEN + 1] = {0};
+    memcpy(context_before,
+        JG_MAX(err_line, jg->json_cur - JG_CONTEXT_BEFORE_MAX_STRLEN),
+        JG_MIN(JG_CONTEXT_BEFORE_MAX_STRLEN, jg->json_cur - err_line));
+
+    size_t err_char_size = get_utf8_char_size(jg->json_cur, jg->json_over);
+    char err_char[4 + 1] = {0}; // Accomodate max 4 byte UTF-8 chars
+    memcpy(err_char, jg->json_cur, err_char_size);
+
+    uint8_t const * newline_after = jg->json_cur + err_char_size;
+    while (*newline_after != '\r' && *newline_after != '\n' &&
+        ++newline_after < jg->json_over);
+    char context_after[JG_CONTEXT_AFTER_MAX_STRLEN + 1] = {0};
+    memcpy(context_after, jg->json_cur + err_char_size,
+        JG_MIN(JG_CONTEXT_AFTER_MAX_STRLEN, newline_after - jg->json_cur - 1));
+
+    char parse_err_mark_before_default[] = "\033[0;31m"; // ANSI esc code: red
+    char parse_err_mark_after_default[] = "\033[0m"; // ANSI esc code: no color
+    if (!parse_err_mark_before) {
+        parse_err_mark_before = parse_err_mark_before_default;
+    }
+    if (!parse_err_mark_after) {
+        parse_err_mark_after = parse_err_mark_after_default;
+    }
+
+#define JG_ERR_FMT "%s: [LINE %zu, CHAR %zu] %s%s%s%s%s", \
+    static_err_str, line_i, char_i, context_before, parse_err_mark_before, \
+    err_char, parse_err_mark_after, context_after
+
+    int byte_c = snprintf(NULL, 0, JG_ERR_FMT);
+    char * err_str = malloc(byte_c + 1);
+    if (!err_str) {
+        return jg->err_str = err_strs[jg->ret = JG_E_MALLOC];
+    }
+    err_str[byte_c] = '\0';
+    sprintf(err_str, JG_ERR_FMT);
+
+#undef JG_ERR_FMT
+
+    return jg->err_str = err_str;
 }

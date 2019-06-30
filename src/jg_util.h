@@ -5,15 +5,16 @@
 
 #include "jgrandson.h"
 
-struct jg_opaque { // Usually 16 + (8 + 8) + (8 + (4 + (2 + (1 + 1))) = 48 bytes
+struct jg_opaque {
     struct jg_val root_val;
     uint8_t const * json_str; // the start of the JSON string to be parsed
     uint8_t const * json_cur; // current parsing position within json_str
+    uint8_t const * json_over; // the byte following the end of the json_str buf
     char const * err_str;
+    bool json_str_needs_free;
+    bool err_str_needs_free;
     int errnum;
-    uint16_t ret; // jg_ret as a uint16_t
-    uint8_t json_str_needs_free; // boolean
-    uint8_t err_str_needs_free; // boolean
+    jg_ret ret;
 };
 
 void free_json_str(
