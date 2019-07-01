@@ -26,7 +26,7 @@ static char const * err_strs[] = {
 /*06*/ "Unsuccessful fclose(): ",
 /*07*/ "Unsuccessful fseeko(..., SEEK_END): ",
 /*08*/ "Unsuccessful ftello(): ",
-       // parsing errors (i.e., with JSON string context)
+       // parsing errors (i.e., with JSON text context)
 /*09*/ "Invalid JSON type",
 /*10*/ "Unterminated string: closing double-quote ('\"') not found",
 /*11*/ "Unterminated array: closing square bracket (']') not found",
@@ -39,7 +39,9 @@ static char const * err_strs[] = {
        "if its 2nd character is a decimal point",
 /*18*/ "Number contains an invalid character",
 /*19*/ "Numbers must not contain multiple decimal points",
-/*20*/ "The exponent part of a number must include at least one digit",
+/*20*/ "The exponent part of a number following an \"e\" or \"E\" must contain "
+       "one or more digits, the first of which may optionally be preceded by a "
+       "a single \"+\" or \"-\" sign only",
 /*21*/ "Invalid character in the exponent part of a number",
 /*22*/ "String contains invalid UTF-8 byte sequence",
 /*23*/ "Control characters (U+0000 through U+001F) in strings must be escaped",
@@ -56,11 +58,12 @@ static char const * err_strs[] = {
 /*28*/ "Array elements must be followed by a comma (',') or a closing bracket "
        "(']')",
 /*29*/ "The key of a key-value pair must be of type string (i.e., keys must "
-       "be enclosed in double-quotes)",
-/*30*/ "The key and value of a key-value pair must be separated by a hyphen "
+       "be enclosed in quotation marks)",
+/*30*/ "The key and value of a key-value pair must be separated by a colon "
        "(':')",
 /*31*/ "Key-value pairs must be followed by a comma (',') or a closing brace "
-       "('}')"
+       "('}')",
+/*32*/ "A JSON text must contain only one root value (see rfc8259)"
 };
 
 void free_json_str(
@@ -178,19 +181,27 @@ char const * jg_get_err_str(
         parse_err_mark_after = parse_err_mark_after_default;
     }
 
-#define JG_ERR_FMT "%s: [LINE %zu, CHAR %zu] %s%s%s%s%s", \
-    static_err_str, line_i, char_i, context_before, parse_err_mark_before, \
-    err_char, parse_err_mark_after, context_after
+#define JG_ASPRINTF(...) \
+    int byte_c = snprintf(NULL, 0, __VA_ARGS__); \
+    char * err_str = malloc(byte_c + 1); \
+    if (!err_str) { \
+        return jg->err_str = err_strs[jg->ret = JG_E_MALLOC]; \
+    } \
+    /* Ignoring the return value this time given how unlikely failure is. */ \
+    sprintf(err_str, __VA_ARGS__)
 
-    int byte_c = snprintf(NULL, 0, JG_ERR_FMT);
-    char * err_str = malloc(byte_c + 1);
-    if (!err_str) {
-        return jg->err_str = err_strs[jg->ret = JG_E_MALLOC];
-    }
-    err_str[byte_c] = '\0';
-    sprintf(err_str, JG_ERR_FMT);
+    JG_ASPRINTF("%s: [LINE %zu, CHAR %zu] %s%s%s%s%s",
+        static_err_str,
+        line_i,
+        char_i,
+        context_before,
+        parse_err_mark_before,
+        err_char,
+        parse_err_mark_after,
+        context_after
+    );
 
-#undef JG_ERR_FMT
+#undef JG_ASPRINTF
 
     return jg->err_str = err_str;
 }
