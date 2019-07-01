@@ -66,6 +66,12 @@ static char const * err_strs[] = {
 /*32*/ "A JSON text must contain only one root value (see rfc8259)"
 };
 
+jg_t * jg_init(
+    void
+) {
+    return calloc(1, sizeof(struct jg_opaque));
+}
+
 void free_json_str(
     jg_t * jg
 ) {
@@ -86,6 +92,65 @@ static void free_err_str(
     }
 }
 
+// Needed because free_array() and free_object() are mutually recursive
+static void free_array(
+    struct jg_val * v
+);
+
+static void free_object(
+    struct jg_val * v
+) {
+    for (struct jg_keyval * kv = v->obj; kv < v->obj + v->keyval_c; kv++) {
+        switch (kv->val.type) {
+        case JG_TYPE_OBJECT:
+            free_object(&kv->val);
+            continue;
+        case JG_TYPE_ARRAY:
+            free_array(&kv->val);
+            continue;
+        default:
+            continue;
+        }
+    }
+    free(v->obj);
+}
+
+static void free_array(
+    struct jg_val * v
+) {
+    for (struct jg_val * elem = v->arr; elem < v->arr + v->elem_c; elem++) {
+        switch (elem->type) {
+        case JG_TYPE_OBJECT:
+            free_object(elem);
+            continue;
+        case JG_TYPE_ARRAY:
+            free_array(elem);
+            continue;
+        default:
+            continue;
+        }
+    }
+    free(v->arr);
+}
+
+void jg_free(
+    jg_t * jg
+) {
+    switch (jg->root_val.type) {
+    case JG_TYPE_OBJECT:
+        free_object(&jg->root_val);
+        break;
+    case JG_TYPE_ARRAY:
+        free_array(&jg->root_val);
+        break;
+    default:
+        break;
+    }
+    free_json_str(jg);
+    free_err_str(jg);
+    free(jg);
+}
+
 static size_t get_utf8_char_size(
     uint8_t const * u,
     uint8_t const * const u_over
@@ -94,18 +159,6 @@ static size_t get_utf8_char_size(
     if (++u == u_over || JG_IS_1ST_UTF8_BYTE(*u)) return 1;
     if (++u == u_over || JG_IS_1ST_UTF8_BYTE(*u)) return 2;
     return ++u == u_over || JG_IS_1ST_UTF8_BYTE(*u) ? 3 : 4;
-}
-
-jg_t * jg_init(
-    void
-) {
-    return calloc(1, sizeof(struct jg_opaque));
-}
-
-void jg_free(
-    jg_t * jg
-) {
-    (void) jg; // todo
 }
 
 char const * jg_get_err_str(

@@ -74,7 +74,7 @@ struct jg_val {
     // using the union below allows writing code that is more self-documenting.
     union {
         uint32_t byte_c; // JG_TYPE_STRING/NUMBER -- NO null-termination!
-        uint32_t val_c; // JG_TYPE_ARRAY -- number of jg_val elements
+        uint32_t elem_c; // JG_TYPE_ARRAY -- number of jg_val elements
         uint32_t keyval_c; // JG_TYPE_OBJECT -- number of jg_keyval elements
     };
     enum jg_type type;

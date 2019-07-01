@@ -420,7 +420,7 @@ static jg_ret parse_array(
     uint8_t const * const u_backup = *u;
     for (;;) {
         reskip_element(u);
-        v->val_c++;
+        v->elem_c++;
         reskip_any_whitespace(u);
         switch (**u) {
         case ']':
@@ -433,12 +433,13 @@ static jg_ret parse_array(
         }
         break;
     }
-    v->arr = calloc(v->val_c, sizeof(struct jg_val));
+    v->type = JG_TYPE_ARRAY;
+    v->arr = calloc(v->elem_c, sizeof(struct jg_val));
     if (!v->arr) {
         return JG_E_CALLOC;
     }
     *u = u_backup;
-    for (struct jg_val * elem = v->arr; elem < v->arr + v->val_c; elem++) {
+    for (struct jg_val * elem = v->arr; elem < v->arr + v->elem_c; elem++) {
         JG_GUARD(parse_element(u, elem));
         reskip_any_whitespace(u);
         // Check needed here because the reskip_element() call above is actually
@@ -604,7 +605,7 @@ jg_ret jg_parse_str(
     jg->json_str = json_str_copy;
     jg->json_str_needs_free = true;
     jg->json_over = jg->json_str + byte_c;
-    return jg->ret =  parse_root(jg);
+    return jg->ret = parse_root(jg);
 }
 
 jg_ret jg_parse_str_no_copy(
@@ -615,7 +616,7 @@ jg_ret jg_parse_str_no_copy(
     free_json_str(jg);
     jg->json_str = (uint8_t const *) json_str;
     jg->json_over = jg->json_str + byte_c;
-    return jg->ret =  parse_root(jg);
+    return jg->ret = parse_root(jg);
 }
 
 jg_ret jg_parse_file(
