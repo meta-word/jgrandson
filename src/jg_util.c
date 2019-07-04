@@ -6,10 +6,7 @@
 #define JG_CONTEXT_BEFORE_MAX_STRLEN 80
 #define JG_CONTEXT_AFTER_MAX_STRLEN 80
 
-// Is UTF-8 continuation byte (i.e., 0b10XXXXXX) ? 0 : 1
-#define JG_IS_1ST_UTF8_BYTE(byte) (((byte) & 0xC0) != 0x80)
-
-#include "jg_util.h"
+#include "jgrandson_internal.h"
 
 #include <locale.h> // newlocale()
 
@@ -63,13 +60,24 @@ static char const * err_strs[] = {
        "(':')",
 /*31*/ "Key-value pairs must be followed by a comma (',') or a closing brace "
        "('}')",
-/*32*/ "A JSON text must contain only one root value (see rfc8259)"
+/*32*/ "A JSON text must contain only one root value (see rfc8259)",
+/*34*/ "", // todo
+/*35*/ "",
+/*36*/ "",
+/*37*/ "",
+/*38*/ "",
+/*39*/ "",
+/*40*/ "",
+/*41*/ "",
+/*42*/ "",
+/*43*/ "",
+/*44*/ ""
 };
 
 jg_t * jg_init(
     void
 ) {
-    return calloc(1, sizeof(struct jg_opaque));
+    return calloc(1, sizeof(struct jgrandson));
 }
 
 void free_json_str(
@@ -82,7 +90,7 @@ void free_json_str(
     }
 }
 
-static void free_err_str(
+void free_err_str(
     jg_t * jg
 ) {
     if (jg->err_str_needs_free) {
@@ -102,10 +110,10 @@ static void free_object(
 ) {
     for (struct jg_keyval * kv = v->obj; kv < v->obj + v->keyval_c; kv++) {
         switch (kv->val.type) {
-        case JG_TYPE_OBJECT:
+        case JG_TYPE_OBJ:
             free_object(&kv->val);
             continue;
-        case JG_TYPE_ARRAY:
+        case JG_TYPE_ARR:
             free_array(&kv->val);
             continue;
         default:
@@ -120,10 +128,10 @@ static void free_array(
 ) {
     for (struct jg_val * elem = v->arr; elem < v->arr + v->elem_c; elem++) {
         switch (elem->type) {
-        case JG_TYPE_OBJECT:
+        case JG_TYPE_OBJ:
             free_object(elem);
             continue;
-        case JG_TYPE_ARRAY:
+        case JG_TYPE_ARR:
             free_array(elem);
             continue;
         default:
@@ -137,10 +145,10 @@ void jg_free(
     jg_t * jg
 ) {
     switch (jg->root_val.type) {
-    case JG_TYPE_OBJECT:
+    case JG_TYPE_OBJ:
         free_object(&jg->root_val);
         break;
-    case JG_TYPE_ARRAY:
+    case JG_TYPE_ARR:
         free_array(&jg->root_val);
         break;
     default:
@@ -149,6 +157,18 @@ void jg_free(
     free_json_str(jg);
     free_err_str(jg);
     free(jg);
+}
+
+jg_ret check_state(
+    jg_t * jg,
+    enum jg_state state
+) {
+    if (jg->state != state) {
+        jg->err_expected.state = state;
+        jg->err_received.state = jg->state;
+        return jg->ret = JG_E_WRONG_STATE;
+    }
+    return JG_OK;
 }
 
 static size_t get_utf8_char_size(
@@ -166,7 +186,9 @@ char const * jg_get_err_str(
     char const * parse_err_mark_before,
     char const * parse_err_mark_after
 ) {
-    free_err_str(jg);
+    if (jg->ret != JG_E_GET_STR_CUSTOM) {
+        free_err_str(jg);
+    }
     char const * static_err_str = err_strs[jg->ret];
     if (jg->ret <= JG_E_FREAD) {
         return jg->err_str = static_err_str;
@@ -177,7 +199,8 @@ char const * jg_get_err_str(
         if (loc == (locale_t) 0) {
             return jg->err_str = err_strs[jg->ret = JG_E_NEWLOCALE];
         }
-        char * errno_str = strerror_l(jg->errnum, loc); // thread-safe
+        // strerror_l() is thread-safe (unlike strerror())
+        char * errno_str = strerror_l(jg->err_received.errn, loc);
         freelocale(loc);
         char * err_str = malloc(strlen(static_err_str) + strlen(errno_str) + 1);
         if (!err_str) {
@@ -188,7 +211,7 @@ char const * jg_get_err_str(
         jg->err_str_needs_free = true;
         return jg->err_str = err_str;
     }
-
+    // todo: differentiate between JG_E_PARSE and JG_E_GET error string handling
     size_t line_i = 1;
     size_t char_i = 1;
     uint8_t const * err_line = jg->json_str;

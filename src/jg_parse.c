@@ -4,8 +4,7 @@
 #define _POSIX_C_SOURCE 201112L // ftello() and fseeko()'s off_t
 #define _FILE_OFFSET_BITS 64 // Ensure off_t is 64 bits (possibly redundant)
 
-#include "jgrandson.h"
-#include "jg_util.h"
+#include "jgrandson_internal.h"
 
 static void skip_any_whitespace(
     uint8_t const * * u,
@@ -280,7 +279,7 @@ static jg_ret parse_number(
         }
     } while (++(*u) != u_over);
     number_parsed:
-    v->type = JG_TYPE_NUMBER;
+    v->type = JG_TYPE_NUM;
     v->str = str;
     v->byte_c = *u - str;
     return JG_OK;
@@ -343,7 +342,7 @@ static jg_ret parse_string(
         switch (**u) {
         case '"':
             (*u)++;
-            v->type = JG_TYPE_STRING;
+            v->type = JG_TYPE_STR;
             v->str = str;
             v->byte_c = *u - str;
             return JG_OK;
@@ -414,7 +413,7 @@ static jg_ret parse_array(
     reskip_any_whitespace(u);
     if (**u == ']') {
         (*u)++;
-        v->type = JG_TYPE_ARRAY;
+        v->type = JG_TYPE_ARR;
         return JG_OK;
     }
     uint8_t const * const u_backup = *u;
@@ -433,7 +432,7 @@ static jg_ret parse_array(
         }
         break;
     }
-    v->type = JG_TYPE_ARRAY;
+    v->type = JG_TYPE_ARR;
     v->arr = calloc(v->elem_c, sizeof(struct jg_val));
     if (!v->arr) {
         return JG_E_CALLOC;
@@ -461,7 +460,7 @@ static jg_ret parse_object(
     reskip_any_whitespace(u);
     if (**u == '}') {
         (*u)++;
-        v->type = JG_TYPE_OBJECT;
+        v->type = JG_TYPE_OBJ;
         return JG_OK;
     }
     uint8_t const * const u_backup = *u;
@@ -490,7 +489,7 @@ static jg_ret parse_object(
         }
         break;
     }
-    v->type = JG_TYPE_OBJECT;
+    v->type = JG_TYPE_OBJ;
     v->obj = calloc(v->keyval_c, sizeof(struct jg_keyval));
     if (!v->obj) {
         return JG_E_CALLOC;
@@ -588,7 +587,11 @@ static jg_ret parse_root(
         return JG_E_PARSE_INVALID_TYPE;
     }
     skip_any_whitespace(&jg->json_cur, jg->json_over);
-    return jg->json_cur < jg->json_over ? JG_E_PARSE_ROOT_SURPLUS : JG_OK;
+    if (jg->json_cur < jg->json_over) {
+        return JG_E_PARSE_ROOT_SURPLUS;
+    }
+    jg->state = JG_STATE_GET;
+    return JG_OK;
 }
 
 jg_ret jg_parse_str(
@@ -596,6 +599,8 @@ jg_ret jg_parse_str(
     char const * json_str,
     size_t byte_c
 ) {
+    JG_GUARD(check_state(jg, JG_STATE_INIT));
+    jg->state = JG_STATE_PARSE;
     free_json_str(jg);
     uint8_t * json_str_copy = malloc(byte_c);
     if (!json_str_copy) {
@@ -613,6 +618,8 @@ jg_ret jg_parse_str_no_copy(
     char const * json_str,
     size_t byte_c
 ) {
+    JG_GUARD(check_state(jg, JG_STATE_INIT));
+    jg->state = JG_STATE_PARSE;
     free_json_str(jg);
     jg->json_str = (uint8_t const *) json_str;
     jg->json_over = jg->json_str + byte_c;
@@ -623,21 +630,23 @@ jg_ret jg_parse_file(
     jg_t * jg,
     char const * filepath
 ) {
+    JG_GUARD(check_state(jg, JG_STATE_INIT));
+    jg->state = JG_STATE_PARSE;
     free_json_str(jg);
     FILE * f = fopen(filepath, "r");
     if (!f) {
-        jg->errnum = errno;
+        jg->err_received.errn = errno;
         return jg->ret = JG_E_ERRNO_FOPEN;
     }
     if (fseeko(f, 0, SEEK_END) == -1) {
-        jg->errnum = errno;
+        jg->err_received.errn = errno;
         return jg->ret = JG_E_ERRNO_FSEEKO;
     }
     size_t byte_c = 0;
     {
         off_t size = ftello(f);
         if (size < 0) {
-            jg->errnum = errno;
+            jg->err_received.errn = errno;
             return jg->ret = JG_E_ERRNO_FTELLO;
         }
         byte_c = (size_t) size;
@@ -653,7 +662,7 @@ jg_ret jg_parse_file(
     }
     if (fclose(f)) {
         free(json_str);
-        jg->errnum = errno;
+        jg->err_received.errn = errno;
         return jg->ret = JG_E_ERRNO_FCLOSE;
     }
     jg->json_str = json_str;

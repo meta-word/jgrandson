@@ -15,7 +15,16 @@
 #define JG_MIN(a, b) ((a) < (b) ? (a) : (b))
 #define JG_MAX(a, b) ((a) > (b) ? (a) : (b))
 
-typedef struct jg_opaque jg_t;
+#define JG_GUARD(func_call) do { \
+    jg_ret ret = (func_call); \
+    if (ret != JG_OK) { \
+        return ret; \
+    } \
+} while (0)
+
+typedef struct jgrandson jg_t;
+typedef struct jg_val const jg_arr_t;
+typedef struct jg_val const jg_obj_t;
 
 typedef enum {
     JG_OK = 0,
@@ -50,47 +59,30 @@ typedef enum {
     JG_E_PARSE_OBJ_INVALID_KEY = 29,
     JG_E_PARSE_OBJ_KEYVAL_INVALID_SEP = 30,
     JG_E_PARSE_OBJ_INVALID_SEP = 31,
-    JG_E_PARSE_ROOT_SURPLUS = 32
+    JG_E_PARSE_ROOT_SURPLUS = 32,
+    JG_E_WRONG_STATE = 33,
+    JG_E_GET_WRONG_SRC_TYPE = 34,
+    JG_E_GET_WRONG_DST_TYPE = 35,
+    JG_E_GET_SRC_ARR_OVER = 36,
+    JG_E_GET_KEY_NOT_FOUND = 37,
+    JG_E_GET_ARR_TOO_SHORT = 38,
+    JG_E_GET_ARR_TOO_LONG = 39,
+    JG_E_GET_STR_BYTE_C_TOO_FEW = 40,
+    JG_E_GET_STR_BYTE_C_TOO_MANY = 41,
+    JG_E_GET_STR_CHAR_C_TOO_FEW = 42,
+    JG_E_GET_STR_CHAR_C_TOO_MANY = 43,
+    JG_E_GET_STR_CUSTOM = 44
 } jg_ret;
 
 enum jg_type {
-    JG_TYPE_OBJECT = 0,
-    JG_TYPE_ARRAY = 1,
-    JG_TYPE_STRING = 2,
-    JG_TYPE_NUMBER = 3,
-    JG_TYPE_FALSE = 4,
-    JG_TYPE_TRUE = 5,
-    JG_TYPE_NULL = 6
+    JG_TYPE_NULL = 0,
+    JG_TYPE_ARR = 1,
+    JG_TYPE_OBJ = 2,
+    JG_TYPE_STR = 3,
+    JG_TYPE_NUM = 4,
+    JG_TYPE_FALSE = 5,
+    JG_TYPE_TRUE = 6
 };
-
-// 8 or 4 byte pointer + uint32_t union + 4 byte enum(=int): 16 or 12 byte total
-struct jg_val {
-    union {
-        uint8_t const * str; // JG_TYPE_STRING/NUMBER -- NOT null-terminated!
-        struct jg_val * arr; // JG_TYPE_ARRAY -- array of val_c elements
-        struct jg_keyval * obj; // JG_TYPE_OBJECT -- array of keyval_c elements
-    };
-    // A single "uint32_t size" for all types would of course work fine too, but
-    // using the union below allows writing code that is more self-documenting.
-    union {
-        uint32_t byte_c; // JG_TYPE_STRING/NUMBER -- NO null-termination!
-        uint32_t elem_c; // JG_TYPE_ARRAY -- number of jg_val elements
-        uint32_t keyval_c; // JG_TYPE_OBJECT -- number of jg_keyval elements
-    };
-    enum jg_type type;
-};
-
-struct jg_keyval {
-    struct jg_val key; // implemented as jg_val struct of type JG_TYPE_STRING
-    struct jg_val val;
-};
-
-#define JG_GUARD(jg_call) do { \
-    jg_ret ret = (jg_call); \
-    if (ret != JG_OK) { \
-        return ret; \
-    } \
-} while (0)
 
 jg_t * jg_init(
     void
@@ -106,6 +98,9 @@ char const * jg_get_err_str(
     char const * parse_err_mark_after
 );
 
+////////////////////////////////////////////////////////////////////////////////
+// jg_parse_... prototypes /////////////////////////////////////////////////////
+
 jg_ret jg_parse_str(
     jg_t * jg,
     char const * json_str,
@@ -118,7 +113,138 @@ jg_ret jg_parse_str_no_copy(
     size_t byte_c
 );
 
+jg_ret jg_parse_ustr(
+    jg_t * jg,
+    uint8_t const * json_str,
+    size_t byte_c
+);
+
+jg_ret jg_parse_ustr_no_copy(
+    jg_t * jg,
+    uint8_t const * json_str,
+    size_t byte_c
+);
+
 jg_ret jg_parse_file(
     jg_t * jg,
     char const * filepath
 );
+
+////////////////////////////////////////////////////////////////////////////////
+// jg_[root|arr|obj]_get_... prototypes ////////////////////////////////////////
+
+// jg_[root|arr|obj]_get_json_type(): 
+
+jg_ret jg_root_get_json_type(jg_t * jg,
+    enum jg_type * dst);
+
+jg_ret jg_arr_get_json_type(jg_t * jg, jg_arr_t const * src, size_t src_i,
+    enum jg_type * dst);
+
+jg_ret jg_obj_get_json_type(jg_t * jg, jg_obj_t const * src, char const * src_k,
+    enum jg_type * dst);
+
+// jg_[root|arr|obj]_get_arr(): 
+
+jg_ret jg_root_get_arr(jg_t * jg,
+    size_t min_c, size_t max_c, jg_arr_t * * dst, size_t * elem_c);
+
+jg_ret jg_arr_get_arr(jg_t * jg, jg_arr_t const * src, size_t src_i,
+    size_t min_c, size_t max_c, jg_arr_t * * dst, size_t * elem_c);
+
+jg_ret jg_obj_get_arr(jg_t * jg, jg_obj_t const * src, char const * src_k,
+    size_t min_c, size_t max_c, jg_arr_t * * dst, size_t * elem_c);
+
+jg_ret jg_obj_get_arr_defa(jg_t * jg, jg_obj_t const * src, char const * src_k,
+    size_t max_c, jg_arr_t * * dst, size_t * elem_c);
+
+// jg_[root|arr|obj]_get_obj(): 
+
+jg_ret jg_root_get_obj(jg_t * jg,
+    jg_obj_t * * dst);
+
+jg_ret jg_arr_get_obj(jg_t * jg, jg_arr_t const * src, size_t src_i,
+    jg_obj_t * * dst);
+
+jg_ret jg_obj_get_obj(jg_t * jg, jg_obj_t const * src, char const * src_k,
+    jg_obj_t * * dst);
+
+jg_ret jg_obj_get_obj_defa(jg_t * jg, jg_obj_t const * src, char const * src_k,
+    jg_obj_t * * dst);
+
+// jg_obj_get_keys(): 
+
+jg_ret jg_obj_get_keys(jg_t * jg, jg_obj_t * src,
+    char * * * dst, size_t * key_c);
+
+// jg_[root|arr|obj]_get_*str*(): 
+
+typedef struct {
+    size_t * byte_c;
+    size_t * char_c;
+    size_t min_byte_c;
+    size_t max_byte_c;
+    size_t min_char_c;
+    size_t max_char_c;
+    char const * min_byte_c_estr;
+    char const * max_byte_c_estr;
+    char const * min_char_c_estr;
+    char const * max_char_c_estr;
+    bool nullify_empty_str;
+    bool omit_null_terminator;
+    // bool keep_escaped; -- todo: unescaping (or not) isn't implemented yet ):
+} jg_opt_str;
+
+jg_ret jg_root_get_str(jg_t * jg,
+    char * dst, jg_opt_str * opt);
+
+jg_ret jg_root_get_stra(jg_t * jg,
+    char * * dst, jg_opt_str * opt);
+
+jg_ret jg_root_get_ustr(jg_t * jg,
+    uint8_t * dst, jg_opt_str * opt);
+
+jg_ret jg_root_get_ustra(jg_t * jg,
+    uint8_t * * dst, jg_opt_str * opt);
+
+jg_ret jg_arr_get_str(jg_t * jg, jg_arr_t const * src, size_t src_i,
+    char * dst, jg_opt_str * opt);
+
+jg_ret jg_arr_get_stra(jg_t * jg, jg_arr_t const * src, size_t src_i,
+    char * * dst, jg_opt_str * opt);
+
+jg_ret jg_arr_get_ustr(jg_t * jg, jg_arr_t const * src, size_t src_i,
+    uint8_t * dst, jg_opt_str * opt);
+
+jg_ret jg_arr_get_ustra(jg_t * jg, jg_arr_t const * src, size_t src_i,
+    uint8_t * * dst, jg_opt_str * opt);
+
+jg_ret jg_obj_get_str(jg_t * jg, jg_obj_t const * src, char const * src_k,
+    char const * defa, char * dst, jg_opt_str * opt);
+
+jg_ret jg_obj_get_stra(jg_t * jg, jg_obj_t const * src, char const * src_k,
+    char const * defa, char * * dst, jg_opt_str * opt);
+
+jg_ret jg_obj_get_ustr(jg_t * jg, jg_obj_t const * src, char const * src_k,
+    uint8_t const * defa, uint8_t * dst, jg_opt_str * opt);
+
+jg_ret jg_obj_get_ustra(jg_t * jg, jg_obj_t const * src, char const * src_k,
+    uint8_t const * defa, uint8_t * * dst, jg_opt_str * opt);
+
+// todo: all other types
+
+/*
+typedef struct {
+    intmax_t * min,
+    intmax_t * max,
+    char const * min_estr,
+    char const * max_estr
+} jg_opt_int;
+
+typedef struct {
+    uintmax_t * min,
+    uintmax_t * max,
+    char const * min_estr,
+    char const * max_estr
+} jg_opt_uint;
+*/
