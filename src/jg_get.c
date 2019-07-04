@@ -395,10 +395,14 @@ static jg_ret obj_get_str(jg_t * jg, jg_obj_t const * src, char const * src_k,
     JG_GUARD(check_state(jg, JG_STATE_GET));
     JG_GUARD(check_src_type(jg, src, JG_TYPE_OBJ));
     struct jg_val * v = obj_get_val_by_key(src, src_k);
-    if (v) return get_str(jg, v, dst, opt, needs_alloc);
-    // todo: default string
-    (void) defa;
-    return jg->ret = JG_OK;
+    if (v) {
+        JG_GUARD(check_dst_type(jg, v, JG_TYPE_STR));
+        return get_str(jg, v, dst, opt, needs_alloc);
+    }
+    return defa ? get_str(jg, &(struct jg_val){
+        .str = defa,
+        .byte_c = strlen((char *) defa)
+    }, dst, opt, needs_alloc) : (jg->ret = JG_E_GET_KEY_NOT_FOUND);
 }
 
 jg_ret jg_obj_get_str(jg_t * jg, jg_obj_t const * src, char const * src_k,
