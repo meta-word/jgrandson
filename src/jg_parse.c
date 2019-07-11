@@ -7,243 +7,247 @@
 #include "jgrandson_internal.h"
 
 static void skip_any_whitespace(
-    uint8_t const * * u,
-    uint8_t const * const u_over
+    char const * * c,
+    char const * const c_over
 ) {
-    while (*u < u_over &&
-        (**u == ' ' || **u == '\n' || **u == '\t' || **u == '\r')) {
-        (*u)++;
+    while (*c < c_over &&
+        (**c == ' ' || **c == '\n' || **c == '\t' || **c == '\r')) {
+        (*c)++;
     }
 }
 
 // For cases where it's already known that the JSON string buffer is long enough
 static void reskip_any_whitespace(
-    uint8_t const * * u
+    char const * * c
 ) {
-    while (**u == ' ' || **u == '\n' || **u == '\t' || **u == '\r') {
-        (*u)++;
+    while (**c == ' ' || **c == '\n' || **c == '\t' || **c == '\r') {
+        (*c)++;
     }
 }
 
-// Try to go to set *u to the char after the string's closing quotation mark,
-// but return an error if u_over was reached before that mark was found.
+// Try to go to set *c to the char after the string's closing quotation mark,
+// but return an error if c_over was reached before that mark was found.
 static jg_ret skip_string(
-    uint8_t const * * u,
-    uint8_t const * const u_over
+    char const * * c,
+    char const * const c_over
 ) {
-    // *u assumed to point to the opening quotation mark.
-    uint8_t const * const u_backup = *u;
-    while (++(*u) < u_over) {
-        if (**u == '"') {
-            (*u)++;
+    // *c assumed to point to the opening quotation mark.
+    char const * const c_backup = *c;
+    while (++(*c) < c_over) {
+        if (**c == '"') {
+            (*c)++;
             return JG_OK;
         }
-        if (**u == '\\') {
-            if (++(*u) >= u_over) {
+        if (**c == '\\') {
+            if (++(*c) >= c_over) {
                 break;
             }
         }
     }
-    *u = u_backup; // Set u to the opening " to provide it as error context.
+    *c = c_backup; // Set c to the opening " to provide it as error context.
     return JG_E_PARSE_UNTERM_STR;
 }
 
 // For strings that have previously gone through skip_string() successfully
 static void reskip_string(
-    uint8_t const * * u
+    char const * * c
 ) {
-    // *u assumed to point to the opening quotation mark.
-    while (*++(*u) != '"') {
-        if (**u == '\\') {
-            (*u)++;
+    // *c assumed to point to the opening quotation mark.
+    while (*++(*c) != '"') {
+        if (**c == '\\') {
+            (*c)++;
         }
     }
-    (*u)++;
+    (*c)++;
 }
 
-// Try to go to set *u to the char after the array's closing bracket (']'),
-// but return an error if u_over was reached before that bracket was found.
+// Try to go to set *c to the char after the array's closing bracket (']'),
+// but return an error if c_over was reached before that bracket was found.
 static jg_ret skip_array(
-    uint8_t const * * u,
-    uint8_t const * const u_over
+    char const * * c,
+    char const * const c_over
 ) {
-    // *u assumed to point to the opening bracket ('[').
-    uint8_t const * const u_backup = (*u)++;
-    while (*u < u_over) {
-        switch (**u) {
+    // *c assumed to point to the opening bracket ('[').
+    char const * const c_backup = (*c)++;
+    while (*c < c_over) {
+        switch (**c) {
         case '"':
-            JG_GUARD(skip_string(u, u_over));
+            JG_GUARD(skip_string(c, c_over));
             continue;
         case '[':
-            JG_GUARD(skip_array(u, u_over));
+            JG_GUARD(skip_array(c, c_over));
             continue;
         case ']':
-            (*u)++;
+            (*c)++;
             return JG_OK;
         default:
-            (*u)++;
+            (*c)++;
             continue;
         }
     }
-    *u = u_backup; // Set u to the opening [ to provide it as error context.
+    *c = c_backup; // Set c to the opening [ to provide it as error context.
     return JG_E_PARSE_UNTERM_ARR;
 }
 
 // For arrays that have previously been successfully skipped
 static void reskip_array(
-    uint8_t const * * u
+    char const * * c
 ) {
-    // *u assumed to point to the opening bracket ('[').
-    (*u)++;
-    while (**u != ']') {
-        switch (**u) {
+    // *c assumed to point to the opening bracket ('[').
+    (*c)++;
+    while (**c != ']') {
+        switch (**c) {
         case '"':
-            reskip_string(u);
+            reskip_string(c);
             continue;
         case '[':
-            reskip_array(u);
+            reskip_array(c);
             continue;
         default:
-            (*u)++;
+            (*c)++;
             continue;
         }
     }
-    (*u)++;
+    (*c)++;
 }
 
-// Try to go to set *u to the char after the object's closing brace ('}'),
-// but return an error if u_over was reached before that brace was found.
+// Try to go to set *c to the char after the object's closing brace ('}'),
+// but return an error if c_over was reached before that brace was found.
 static jg_ret skip_object(
-    uint8_t const * * u,
-    uint8_t const * const u_over
+    char const * * c,
+    char const * const c_over
 ) {
-    // *u assumed to point to the opening brace ('{').
-    uint8_t const * const u_backup = (*u)++;
-    while (*u < u_over) {
-        switch (**u) {
+    // *c assumed to point to the opening brace ('{').
+    char const * const c_backup = (*c)++;
+    while (*c < c_over) {
+        switch (**c) {
         case '"':
-            JG_GUARD(skip_string(u, u_over));
+            JG_GUARD(skip_string(c, c_over));
             continue;
         case '{':
-            JG_GUARD(skip_object(u, u_over));
+            JG_GUARD(skip_object(c, c_over));
             continue;
         case '}':
-            (*u)++;
+            (*c)++;
             return JG_OK;
         default:
-            (*u)++;
+            (*c)++;
             continue;
         }
     }
-    *u = u_backup; // Set u to the opening { to provide it as error context.
+    *c = c_backup; // Set c to the opening { to provide it as error context.
     return JG_E_PARSE_UNTERM_OBJ;
 }
 
 // For objects that have previously been successfully skipped
 static void reskip_object(
-    uint8_t const * * u
+    char const * * c
 ) {
-    // *u assumed to point to the opening brace ('{').
-    (*u)++;
-    while (**u != '}') {
-        switch (**u) {
+    // *c assumed to point to the opening brace ('{').
+    (*c)++;
+    while (**c != '}') {
+        switch (**c) {
         case '"':
-            reskip_string(u);
+            reskip_string(c);
             continue;
         case '{':
-            reskip_object(u);
+            reskip_object(c);
             continue;
         default:
-            (*u)++;
+            (*c)++;
             continue;
         }
     }
-    (*u)++;
+    (*c)++;
 }
 
 // For elements that have previously been successfully skipped
 static void reskip_element(
-    uint8_t const * * u
+    char const * * c
 ) {
-    reskip_any_whitespace(u);
-    switch (**u) {
+    reskip_any_whitespace(c);
+    switch (**c) {
     case '"':
-        reskip_string(u);
+        reskip_string(c);
         return;
     case '[':
-        reskip_array(u);
+        reskip_array(c);
         return;
     case '{':
-        reskip_object(u);
+        reskip_object(c);
         return;
     default:
-        while (**u != ',' && **u != ']' && **u != '}') {
-            (*u)++; // reskip number/true/false/null/whitespace
+        while (**c != ',' && **c != ']' && **c != '}') {
+            (*c)++; // reskip number/true/false/null/whitespace
         }
     }
 }
 
-static jg_ret parse_false(
-    uint8_t const * * u,
-    uint8_t const * const u_over,
-    struct jg_val * v
-) {
-    if (++(*u) == u_over || **u != 'a' ||
-        ++(*u) == u_over || **u != 'l' ||
-        ++(*u) == u_over || **u != 's' ||
-        ++(*u) == u_over || **u != 'e') {
-        return JG_E_PARSE_FALSE;
-    }
-    (*u)++;
-    v->type = JG_TYPE_FALSE;
-    return JG_OK;
-}
-
-static jg_ret parse_true(
-    uint8_t const * * u,
-    uint8_t const * const u_over,
-    struct jg_val * v
-) {
-    if (++(*u) == u_over || **u != 'r' ||
-        ++(*u) == u_over || **u != 'u' ||
-        ++(*u) == u_over || **u != 'e') {
-        return JG_E_PARSE_TRUE;
-    }
-    (*u)++;
-    v->type = JG_TYPE_TRUE;
-    return JG_OK;
-}
-
 static jg_ret parse_null(
-    uint8_t const * * u,
-    uint8_t const * const u_over,
-    struct jg_val * v
+    char const * * c,
+    char const * const c_over,
+    struct jg_val_in * v
 ) {
-    if (++(*u) == u_over || **u != 'u' ||
-        ++(*u) == u_over || **u != 'l' ||
-        ++(*u) == u_over || **u != 'l') {
+    v->json = *c;
+    if (++(*c) == c_over || **c != 'u' ||
+        ++(*c) == c_over || **c != 'l' ||
+        ++(*c) == c_over || **c != 'l') {
         return JG_E_PARSE_NULL;
     }
-    (*u)++;
+    (*c)++;
     v->type = JG_TYPE_NULL;
     return JG_OK;
 }
 
-static jg_ret parse_number(
-    uint8_t const * * u,
-    uint8_t const * const u_over,
-    struct jg_val * v
+static jg_ret parse_false(
+    char const * * c,
+    char const * const c_over,
+    struct jg_val_in * v
 ) {
-    uint8_t const * str = *u;
-    if (**u == '-' && (++(*u) == u_over || **u < '0' || **u > '9')) {
+    v->json = *c;
+    if (++(*c) == c_over || **c != 'a' ||
+        ++(*c) == c_over || **c != 'l' ||
+        ++(*c) == c_over || **c != 's' ||
+        ++(*c) == c_over || **c != 'e') {
+        return JG_E_PARSE_FALSE;
+    }
+    (*c)++;
+    v->type = JG_TYPE_BOOL;
+    return JG_OK;
+}
+
+static jg_ret parse_true(
+    char const * * c,
+    char const * const c_over,
+    struct jg_val_in * v
+) {
+    v->json = *c;
+    if (++(*c) == c_over || **c != 'r' ||
+        ++(*c) == c_over || **c != 'u' ||
+        ++(*c) == c_over || **c != 'e') {
+        return JG_E_PARSE_TRUE;
+    }
+    (*c)++;
+    v->type = JG_TYPE_BOOL;
+    v->bool_is_true = true;
+    return JG_OK;
+}
+
+static jg_ret parse_number(
+    char const * * c,
+    char const * const c_over,
+    struct jg_val_in * v
+) {
+    v->json = *c;
+    if (**c == '-' && (++(*c) == c_over || **c < '0' || **c > '9')) {
         return JG_E_PARSE_NUM_SIGN;
     }
-    if (**u == '0' && ++(*u) != u_over && **u >= '0' && **u <= '9') {
+    if (**c == '0' && ++(*c) != c_over && **c >= '0' && **c <= '9') {
         return JG_E_PARSE_NUM_LEAD_ZERO;
     }
     bool has_decimal_point = false;
     do {
-        switch (**u) {
+        switch (**c) {
         case '\n': case '\t': case '\r': case ' ': case ',': case ']': case '}':
             goto number_parsed;
         case '.':
@@ -256,13 +260,13 @@ static jg_ret parse_number(
         case '5': case '6': case '7': case '8': case '9':
             break;
         case 'E': case 'e':
-            if (++(*u) == u_over ||
-                ((**u == '+' || **u == '-') && ++(*u) == u_over) ||
-                **u < '0' || **u > '9') {
+            if (++(*c) == c_over ||
+                ((**c == '+' || **c == '-') && ++(*c) == c_over) ||
+                **c < '0' || **c > '9') {
                 return JG_E_PARSE_NUM_EXP_HEAD_INVALID;
             }
-            while (++(*u) != u_over) {
-                switch (**u) {
+            while (++(*c) != c_over) {
+                switch (**c) {
                 case '\n': case '\t': case '\r': case ' ': case ',': case ']':
                 case '}':
                     goto number_parsed;
@@ -277,11 +281,14 @@ static jg_ret parse_number(
         default:
             return JG_E_PARSE_NUM_INVALID;
         }
-    } while (++(*u) != u_over);
+    } while (++(*c) != c_over);
     number_parsed:
     v->type = JG_TYPE_NUM;
-    v->str = str;
-    v->byte_c = *u - str;
+    size_t byte_c = *c - v->json;
+    if (byte_c > UINT32_MAX) {
+        return JG_E_PARSE_NUM_TOO_LARGE; // 4 billion digits is a bit excessive
+    }
+    v->byte_c = byte_c;
     return JG_OK;
 }
 
@@ -330,59 +337,66 @@ static jg_ret parse_utf8(
 }
 
 static jg_ret parse_string(
-    uint8_t const * * u,
-    struct jg_val * v
+    char const * * c,
+    struct jg_val_in * v
 ) {
-    // *u assumed to point to the opening quotation mark.
-    uint8_t const * const str = *u + 1;
-    for (;;) {
-        if (*++(*u) < ' ') {
+    // *c assumed to point to the opening quotation mark.
+    v->json = ++(*c);
+    for (;; (*c)++) {
+        if (**c < 0) {
+            JG_GUARD(parse_utf8((uint8_t const * *) c));
+            continue;
+        }
+        if (**c < ' ') {
             return JG_E_PARSE_STR_UNESC_CONTROL;
         }
-        switch (**u) {
+        switch (**c) {
         case '"':
-            (*u)++;
+            (*c)++;
             v->type = JG_TYPE_STR;
-            v->str = str;
-            v->byte_c = *u - str;
+            size_t byte_c = *c - v->json;
+            if (byte_c > UINT32_MAX) {
+                return JG_E_PARSE_STR_TOO_LARGE; // 4 billion chars is too much
+            }
+            v->byte_c = byte_c;
             return JG_OK;
         case '\\':
-            switch (*++(*u)) {
+            switch (*++(*c)) {
             case 'b': case 't': case 'n': case 'f': case 'r': case '"':
             case '/': case '\\':
                 continue;
             case 'u': // 4 UTF-16 code point encoding hex chars (e.g., "\uE90F")
-                if (*++(*u) < '0' || **u > 'f' ||
-                    (**u > '9' && **u < 'A') || (**u > 'F' && **u < 'a') ||
-                    *++(*u) < '0' || **u > 'f' ||
-                    (**u > '9' && **u < 'A') || (**u > 'F' && **u < 'a') ||
-                    *++(*u) < '0' || **u > 'f' ||
-                    (**u > '9' && **u < 'A') || (**u > 'F' && **u < 'a') ||
-                    *++(*u) < '0' || **u > 'f' ||
-                    (**u > '9' && **u < 'A') || (**u > 'F' && **u < 'a')) {
+                if (*++(*c) < '0' || **c > 'f' ||
+                    (**c > '9' && **c < 'A') || (**c > 'F' && **c < 'a') ||
+                    *++(*c) < '0' || **c > 'f' ||
+                    (**c > '9' && **c < 'A') || (**c > 'F' && **c < 'a') ||
+                    *++(*c) < '0' || **c > 'f' ||
+                    (**c > '9' && **c < 'A') || (**c > 'F' && **c < 'a') ||
+                    *++(*c) < '0' || **c > 'f' ||
+                    (**c > '9' && **c < 'A') || (**c > 'F' && **c < 'a')) {
                     return JG_E_PARSE_STR_UTF16_INVALID;
                 }
                 // check surrogate pair range: \uD800 through \uDFFF
-                if (((*u)[-3] == 'D' || (*u)[-3] == 'd') && (*u)[-2] > '7') {
+                if (((*c)[-3] == 'D' || (*c)[-3] == 'd') && (*c)[-2] > '7') {
                     // check high surrogate pair range: \uDC00 through \uDFFF
-                    if ((*u)[-2] > 'B' && (*u)[-2] != 'a' && (*u)[-2] != 'b') {
+                    if ((*c)[-2] > 'B' && (*c)[-2] != 'a' && (*c)[-2] != 'b') {
                         return JG_E_PARSE_STR_UTF16_UNPAIRED_HIGH;
                     }
                     // verify that the low surrogate is followed by a high one
-                    if (*++(*u) != '/' ||
-                        *++(*u) != 'u' ||
-                        (*++(*u) != 'D' && **u != 'd') ||
-                        *++(*u) < 'C' ||
-                            **u > 'f' ||
-                            (**u > 'F' && **u < 'c') ||
-                        *++(*u) < '0' ||
-                            **u > 'f' ||
-                            (**u > '9' && **u < 'A') ||
-                            (**u > 'F' && **u < 'a') ||
-                        *++(*u) < '0' ||
-                            **u > 'f' ||
-                            (**u > '9' && **u < 'A') ||
-                            (**u > 'F' && **u < 'a')) {
+                    if (*++(*c) != '/' ||
+                        *++(*c) != 'u' ||
+                        (*++(*c) != 'D' && **c != 'd') ||
+                        *++(*c) < 'C' ||
+                            **c > 'f' ||
+                            (**c > 'F' && **c < 'c') ||
+                        *++(*c) < '0' ||
+                            **c > 'f' ||
+                            (**c > '9' && **c < 'A') ||
+                            (**c > 'F' && **c < 'a') ||
+                        *++(*c) < '0' ||
+                            **c > 'f' ||
+                            (**c > '9' && **c < 'A') ||
+                            (**c > 'F' && **c < 'a')) {
                         return JG_E_PARSE_STR_UTF16_UNPAIRED_LOW;
                     }
                 }
@@ -391,41 +405,45 @@ static jg_ret parse_string(
                 return JG_E_PARSE_STR_ESC_INVALID;
             }
         default:
-            if (**u > 0x7F) {
-                JG_GUARD(parse_utf8(u));
-            }
+            continue;
         }
     }
 }
 
 // parse_element() prototype needed here due to mutual recursion
 static jg_ret parse_element(
-    uint8_t const * * u,
-    struct jg_val * v
+    char const * * c,
+    struct jg_val_in * v
 );
 
 static jg_ret parse_array(
-    uint8_t const * * u,
-    struct jg_val * v
+    char const * * c,
+    struct jg_val_in * v
 ) {
-    // *u assumed to point to the opening bracket ('[').
-    (*u)++;
-    reskip_any_whitespace(u);
-    if (**u == ']') {
-        (*u)++;
+    char const * const open_bracket = (*c)++; // '['
+    reskip_any_whitespace(c);
+    if (**c == ']') {
+        (*c)++;
         v->type = JG_TYPE_ARR;
+        struct jg_arr * arr = malloc(sizeof(struct jg_arr));
+        if (!arr) {
+            return JG_E_MALLOC;
+        }
+        arr->json = open_bracket; 
+        arr->elem_c = 0;
+        v->arr = arr;
         return JG_OK;
     }
-    uint8_t const * const u_backup = *u;
+    size_t elem_c = 0;
     for (;;) {
-        reskip_element(u);
-        v->elem_c++;
-        reskip_any_whitespace(u);
-        switch (**u) {
+        reskip_element(c);
+        elem_c++;
+        reskip_any_whitespace(c);
+        switch (**c) {
         case ']':
             break;
         case ',':
-            (*u)++;
+            (*c)++;
             continue;
         default:
             return JG_E_PARSE_ARR_INVALID_SEP;
@@ -433,56 +451,85 @@ static jg_ret parse_array(
         break;
     }
     v->type = JG_TYPE_ARR;
-    v->arr = calloc(v->elem_c, sizeof(struct jg_val));
-    if (!v->arr) {
+    struct jg_arr * arr = calloc(1,
+        sizeof(struct jg_arr) + elem_c * sizeof(struct jg_val_in));
+    if (!arr) {
         return JG_E_CALLOC;
     }
-    *u = u_backup;
-    for (struct jg_val * elem = v->arr; elem < v->arr + v->elem_c; elem++) {
-        JG_GUARD(parse_element(u, elem));
-        reskip_any_whitespace(u);
+    arr->json = open_bracket;
+    arr->elem_c = elem_c;
+    v->arr = arr;
+    *c = open_bracket + 1;
+    for (struct jg_val_in * elem = arr->elems;
+        elem < arr->elems + arr->elem_c; elem++) {
+        JG_GUARD(parse_element(c, elem));
+        reskip_any_whitespace(c);
         // Check needed here because the reskip_element() call above is actually
         // a little too greedy when the element type is number/true/false/null.
-        if (**u != ',' && **u != ']') {
+        if (**c != ',' && **c != ']') {
             return JG_E_PARSE_ARR_INVALID_SEP;
         }
-        (*u)++; // skip the ',' or ']'
+        (*c)++; // skip the ',' or ']'
+    }
+    return JG_OK;
+}
+
+// todo: should actually handle comparing escaped and unescaped key strings ):
+static jg_ret check_key_is_unique(
+    struct jg_pair const * pairs,
+    struct jg_pair const * pair,
+    char const * key,
+    uint32_t byte_c
+) {
+    // Technically, the JSON spec inexplicably allows duplicate keys; but
+    // Jgrandson does not, primarily because pairs with duplicate keys would be
+    // inaccessible with Jgrandson's getter API.
+    for (struct jg_pair const * p = pairs; p < pair; p++) {
+        if (p->key.byte_c == byte_c && !strncmp(p->key.json, key, byte_c)) {
+            return JG_E_PARSE_OBJ_DUPLICATE_KEY;
+        }
     }
     return JG_OK;
 }
 
 static jg_ret parse_object(
-    uint8_t const * * u,
-    struct jg_val * v
+    char const * * c,
+    struct jg_val_in * v
 ) {
-    // *u assumed to point to the opening brace ('{').
-    (*u)++;
-    reskip_any_whitespace(u);
-    if (**u == '}') {
-        (*u)++;
+    char const * const open_brace = (*c)++; // '{'
+    reskip_any_whitespace(c);
+    if (**c == '}') {
+        (*c)++;
         v->type = JG_TYPE_OBJ;
+        struct jg_obj * obj = malloc(sizeof(struct jg_obj));
+        if (!obj) {
+            return JG_E_MALLOC;
+        }
+        obj->json = open_brace;
+        obj->pair_c = 0;
+        v->obj = obj;
         return JG_OK;
     }
-    uint8_t const * const u_backup = *u;
+    size_t pair_c = 0;
     for (;;) {
-        if (**u != '"') {
+        if (**c != '"') {
             return JG_E_PARSE_OBJ_INVALID_KEY;
         }
-        reskip_string(u);
-        reskip_any_whitespace(u);
-        if (**u != ':') {
+        reskip_string(c);
+        reskip_any_whitespace(c);
+        if (**c != ':') {
             return JG_E_PARSE_OBJ_KEYVAL_INVALID_SEP;
         }
-        (*u)++;
-        reskip_element(u);
-        v->keyval_c++;
-        reskip_any_whitespace(u);
-        switch (**u) {
+        (*c)++;
+        reskip_element(c);
+        pair_c++;
+        reskip_any_whitespace(c);
+        switch (**c) {
         case '}':
             break;
         case ',':
-            (*u)++;
-            reskip_any_whitespace(u);
+            (*c)++;
+            reskip_any_whitespace(c);
             continue;
         default:
             return JG_E_PARSE_OBJ_INVALID_SEP;
@@ -490,51 +537,57 @@ static jg_ret parse_object(
         break;
     }
     v->type = JG_TYPE_OBJ;
-    v->obj = calloc(v->keyval_c, sizeof(struct jg_keyval));
-    if (!v->obj) {
+    struct jg_obj * obj = calloc(1,
+        sizeof(struct jg_obj) + pair_c * sizeof(struct jg_pair));
+    if (!obj) {
         return JG_E_CALLOC;
     }
-    *u = u_backup;
-    for (struct jg_keyval * kv = v->obj; kv < v->obj + v->keyval_c; kv++) {
-        reskip_any_whitespace(u);
-        JG_GUARD(parse_string(u, &kv->key));
-        reskip_any_whitespace(u);
-        (*u)++; // skip the ':' already known to be here
-        JG_GUARD(parse_element(u, &kv->val));
-        reskip_any_whitespace(u);
+    obj->json = open_brace;
+    obj->pair_c = pair_c;
+    v->obj = obj;
+    *c = open_brace + 1;
+    for (struct jg_pair * p = obj->pairs; p < obj->pairs + obj->pair_c; p++) {
+        reskip_any_whitespace(c);
+        JG_GUARD(parse_string(c, &p->key));
+        JG_GUARD(check_key_is_unique(obj->pairs, p, p->key.json,
+            p->key.byte_c));
+        reskip_any_whitespace(c);
+        (*c)++; // skip the ':' already known to be here
+        JG_GUARD(parse_element(c, &p->val));
+        reskip_any_whitespace(c);
         // Check needed here because the reskip_element() call above is actually
         // a little too greedy when the element type is number/true/false/null.
-        if (**u != ',' && **u != '}') {
+        if (**c != ',' && **c != '}') {
             return JG_E_PARSE_OBJ_INVALID_SEP;
         }
-        (*u)++; // skip the ',' or '}'
+        (*c)++; // skip the ',' or '}'
     }
     return JG_OK;
 }
 
 // Any value parsed by parse_element() has already been skipped over before, so
-// all parse_...() calls below can be called safely without u_over checks.
+// all parse_...() calls below can be called safely without c_over checks.
 static jg_ret parse_element(
-    uint8_t const * * u,
-    struct jg_val * v
+    char const * * c,
+    struct jg_val_in * v
 ) {
-    reskip_any_whitespace(u);
-    switch (**u) {
+    reskip_any_whitespace(c);
+    switch (**c) {
     case '"':
-        return parse_string(u, v);
+        return parse_string(c, v);
     case '-': case '0': case '1': case '2': case '3': case '4':
     case '5': case '6': case '7': case '8': case '9':
-        return parse_number(u, NULL, v);
+        return parse_number(c, NULL, v);
     case '[':
-        return parse_array(u, v);
+        return parse_array(c, v);
     case 'f':
-        return parse_false(u, NULL, v);
+        return parse_false(c, NULL, v);
     case 'n':
-        return parse_null(u, NULL, v);
+        return parse_null(c, NULL, v);
     case 't':
-        return parse_true(u, NULL, v);
+        return parse_true(c, NULL, v);
     case '{':
-        return parse_object(u, v);
+        return parse_object(c, v);
     default:
         return JG_E_PARSE_INVALID_TYPE;
     }
@@ -546,42 +599,42 @@ static jg_ret parse_element(
 static jg_ret parse_root(
     jg_t * jg
 ) {
-    jg->json_cur = jg->json_str;
+    jg->json_cur = jg->json_text;
     skip_any_whitespace(&jg->json_cur, jg->json_over);
     switch (*jg->json_cur) {
     case '"':
         // Make sure the JSON text root contains a complete string...
         JG_GUARD(skip_string(&jg->json_cur, jg->json_over));
-        jg->json_cur = jg->json_str;
+        jg->json_cur = jg->json_text;
         // ...because parse_string() doesn't check jg->json_over.
-        JG_GUARD(parse_string(&jg->json_cur, &jg->root_val));
+        JG_GUARD(parse_string(&jg->json_cur, &jg->root_in));
         break;
     case '-': case '0': case '1': case '2': case '3': case '4': case '5':
     case '6': case '7': case '8': case '9':
-        JG_GUARD(parse_number(&jg->json_cur, jg->json_over, &jg->root_val));
+        JG_GUARD(parse_number(&jg->json_cur, jg->json_over, &jg->root_in));
         break;
     case '[':
         // make sure the JSON text root contains a complete array...
         JG_GUARD(skip_array(&jg->json_cur, jg->json_over));
-        jg->json_cur = jg->json_str;
+        jg->json_cur = jg->json_text;
         // ...because parse_array() doesn't check jg->json_over.
-        JG_GUARD(parse_array(&jg->json_cur, &jg->root_val));
+        JG_GUARD(parse_array(&jg->json_cur, &jg->root_in));
         break;
     case 'f':
-        JG_GUARD(parse_false(&jg->json_cur, jg->json_over, &jg->root_val));
+        JG_GUARD(parse_false(&jg->json_cur, jg->json_over, &jg->root_in));
         break;
     case 'n':
-        JG_GUARD(parse_null(&jg->json_cur, jg->json_over, &jg->root_val));
+        JG_GUARD(parse_null(&jg->json_cur, jg->json_over, &jg->root_in));
         break;
     case 't':
-        JG_GUARD(parse_true(&jg->json_cur, jg->json_over, &jg->root_val));
+        JG_GUARD(parse_true(&jg->json_cur, jg->json_over, &jg->root_in));
         break;
     case '{':
         // make sure the JSON text root contains a complete object...
         JG_GUARD(skip_object(&jg->json_cur, jg->json_over));
-        jg->json_cur = jg->json_str;
+        jg->json_cur = jg->json_text;
         // ...because parse_array() doesn't check jg->json_over.
-        JG_GUARD(parse_object(&jg->json_cur, &jg->root_val));
+        JG_GUARD(parse_object(&jg->json_cur, &jg->root_in));
         break;
     default:
         return JG_E_PARSE_INVALID_TYPE;
@@ -594,79 +647,85 @@ static jg_ret parse_root(
     return JG_OK;
 }
 
+// Parse the JSON text string without copying it to a malloc-ed char buffer.
 jg_ret jg_parse_str(
     jg_t * jg,
-    char const * json_str,
-    size_t byte_c
+    char const * json_text, // null-terminator not required
+    size_t byte_c // excluding null-terminator
 ) {
-    JG_GUARD(check_state(jg, JG_STATE_INIT));
+    if (jg->state != JG_STATE_INIT) {
+        return jg->ret = JG_E_STATE_NOT_PARSE;
+    }
     jg->state = JG_STATE_PARSE;
-    free_json_str(jg);
-    uint8_t * json_str_copy = malloc(byte_c);
-    if (!json_str_copy) {
+    jg->json_text = json_text;
+    jg->json_over = jg->json_text + byte_c;
+    return jg->ret = parse_root(jg);
+}
+
+// Copy the JSON text string to a malloc-ed char buffer, then parse.
+jg_ret jg_parse_astr(
+    jg_t * jg,
+    char const * json_text, // null-terminator not required
+    size_t byte_c // excluding null-terminator
+) {
+    if (jg->state != JG_STATE_INIT) {
+        return jg->ret = JG_E_STATE_NOT_PARSE;
+    }
+    jg->state = JG_STATE_PARSE;
+    char * json_text_copy = malloc(byte_c);
+    if (!json_text_copy) {
         return jg->ret = JG_E_MALLOC;
     }
-    memcpy(json_str_copy, json_str, byte_c);
-    jg->json_str = json_str_copy;
-    jg->json_str_needs_free = true;
-    jg->json_over = jg->json_str + byte_c;
+    memcpy(json_text_copy, json_text, byte_c);
+    jg->json_text = json_text_copy;
+    jg->json_text_needs_free = true;
+    jg->json_over = jg->json_text + byte_c;
     return jg->ret = parse_root(jg);
 }
 
-jg_ret jg_parse_str_no_copy(
-    jg_t * jg,
-    char const * json_str,
-    size_t byte_c
-) {
-    JG_GUARD(check_state(jg, JG_STATE_INIT));
-    jg->state = JG_STATE_PARSE;
-    free_json_str(jg);
-    jg->json_str = (uint8_t const *) json_str;
-    jg->json_over = jg->json_str + byte_c;
-    return jg->ret = parse_root(jg);
-}
-
+// Open file, copy contents to a malloc-ed char buffer, close file; then parse.
 jg_ret jg_parse_file(
     jg_t * jg,
     char const * filepath
 ) {
-    JG_GUARD(check_state(jg, JG_STATE_INIT));
+    if (jg->state != JG_STATE_INIT) {
+        return jg->ret = JG_E_STATE_NOT_PARSE;
+    }
     jg->state = JG_STATE_PARSE;
-    free_json_str(jg);
     FILE * f = fopen(filepath, "r");
     if (!f) {
-        jg->err_received.errn = errno;
+        jg->err_val.errn = errno;
         return jg->ret = JG_E_ERRNO_FOPEN;
     }
     if (fseeko(f, 0, SEEK_END) == -1) {
-        jg->err_received.errn = errno;
+        jg->err_val.errn = errno;
         return jg->ret = JG_E_ERRNO_FSEEKO;
     }
     size_t byte_c = 0;
     {
         off_t size = ftello(f);
         if (size < 0) {
-            jg->err_received.errn = errno;
+            jg->err_val.errn = errno;
             return jg->ret = JG_E_ERRNO_FTELLO;
         }
         byte_c = (size_t) size;
     }
     rewind(f);
-    uint8_t * json_str = malloc(byte_c);
-    if (!json_str) {
+    char * json_text = malloc(byte_c);
+    if (!json_text) {
         return jg->ret = JG_E_MALLOC;
     }
-    if (fread(json_str, 1, byte_c, f) != byte_c) {
-        free(json_str);
+    if (fread(json_text, 1, byte_c, f) != byte_c) {
+        free(json_text);
         return jg->ret = JG_E_FREAD;
     }
     if (fclose(f)) {
-        free(json_str);
-        jg->err_received.errn = errno;
+        free(json_text);
+        jg->err_val.errn = errno;
         return jg->ret = JG_E_ERRNO_FCLOSE;
     }
-    jg->json_str = json_str;
-    jg->json_str_needs_free = true;
-    jg->json_over = jg->json_str + byte_c;
+    jg->json_text = json_text;
+    jg->json_text_needs_free = true;
+    jg->json_over = jg->json_text + byte_c;
     return jg->ret = parse_root(jg);
 }
