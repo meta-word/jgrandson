@@ -62,11 +62,15 @@ struct jg_val_out {
     union {
         struct jg_arr_node * arr; // If .type is ARR
         struct jg_obj_node * obj; // If .type is OBJ
-        char const * str; // If .type is STR or NUM -- null-terminated
+
+        // Which of these is used depends on whether jg_set_[root|arr|obj]_str()
+        // or jg_set_[root|arr|obj]_astr() is used. Numbers always use .astr.
+        char const * str; // If .type is STR -- null-terminated caller buffer
+        char * astr; // If .type is STR or NUM -- null-terminated heap buffer
     };
     union {
-        bool bool_is_true; // If .type is BOOL
-        bool str_needs_free; // True if set with jg_set_..._astr() (with an 'a')
+        bool bool_is_true; // The boolean truth value when .type is BOOL
+        bool str_is_astr; // If true, .astr is being used and needs free()ing.
     };
     enum jg_type type; // The JSON type this value belongs to (see jgrandson.h)
 };
@@ -132,6 +136,12 @@ void free_err_str( // Only free()s if jg->err_str_needs_free
 jg_ret set_custom_err_str(
     jg_t * jg,
     char const * custom_err_str
+);
+
+jg_ret astrcpy(
+    jg_t * jg,
+	char * * dst,
+    char const * src
 );
 
 bool is_utf8_continuation_byte(

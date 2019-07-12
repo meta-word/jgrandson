@@ -22,8 +22,8 @@
 typedef struct jgrandson jg_t;
 typedef struct jg_arr const jg_arr_get_t;
 typedef struct jg_obj const jg_obj_get_t;
-typedef struct jg_arr_node const jg_arr_set_t;
-typedef struct jg_obj_node const jg_obj_set_t;
+typedef struct jg_val_out jg_arr_set_t;
+typedef struct jg_val_out jg_obj_set_t;
 
 enum jg_type { // The JSON types
     JG_TYPE_NULL = 0,
@@ -104,7 +104,11 @@ typedef enum {
     JG_E_GET_NUM_NOT_FLO = 63,
     JG_E_GET_NUM_FLOAT_OUT_OF_RANGE = 64,
     JG_E_GET_NUM_DOUBLE_OUT_OF_RANGE = 65,
-    JG_E_GET_NUM_LONG_DOUBLE_OUT_OF_RANGE = 66
+    JG_E_GET_NUM_LONG_DOUBLE_OUT_OF_RANGE = 66,
+    JG_E_SET_ROOT_ALREADY_SET = 67,
+    JG_E_SET_NOT_ARR = 68,
+    JG_E_SET_NOT_OBJ = 69,
+    JG_E_SET_DUPLICATE_KEY = 70
 } jg_ret;
 
 #define JG_GUARD(func_call) do { \
@@ -534,3 +538,84 @@ JG_ARR_GET_FLO(_suf, _type)
 JG_GET_FLO(_float, float);
 JG_GET_FLO(_double, double);
 JG_GET_FLO(_long_double, long double);
+
+//##############################################################################
+//## jg_[root|arr|obj]_set_...() prototypes ####################################
+
+jg_ret jg_root_set_null(
+	jg_t * jg
+);
+
+jg_ret jg_arr_set_null(
+	jg_t * jg,
+	jg_arr_set_t * arr
+);
+
+jg_ret jg_obj_set_null(
+	jg_t * jg,
+	jg_obj_set_t * obj,
+	char const * key
+);
+
+#define JG_ROOT_SET(_suf, _type) \
+jg_ret jg_root_set##_suf( \
+    jg_t * jg, \
+    _type v \
+)
+
+#define JG_ARR_SET(_suf, _type) \
+jg_ret jg_arr_set##_suf( \
+    jg_t * jg, \
+    jg_arr_set_t * arr, \
+    _type v \
+)
+
+#define JG_OBJ_SET(_suf, _type) \
+jg_ret jg_obj_set##_suf( \
+    jg_t * jg, \
+    jg_obj_set_t * obj, \
+    char const * key, \
+    _type v \
+)
+
+#define JG_SET(_suf, _type) \
+JG_ROOT_SET(_suf, _type); \
+JG_ARR_SET(_suf, _type); \
+JG_OBJ_SET(_suf, _type)
+
+JG_SET(_arr, jg_arr_set_t * *);
+
+JG_SET(_obj, jg_obj_set_t * *);
+
+JG_SET(_str, char const *);
+JG_SET(_astr, char const *);
+
+JG_SET(_bool, bool);
+
+JG_SET(_int8, int8_t);
+JG_SET(_char, char);
+JG_SET(_signed_char, signed char);
+JG_SET(_int16, int16_t);
+JG_SET(_short, short);
+JG_SET(_int32, int32_t);
+JG_SET(_int, int);
+JG_SET(_int64, int64_t);
+JG_SET(_long, long);
+JG_SET(_long_long, long long);
+JG_SET(_intmax, intmax_t);
+
+JG_SET(_uint8, uint8_t);
+JG_SET(_unsigned_char, unsigned char);
+JG_SET(_uint16, uint16_t);
+JG_SET(_unsigned_short, unsigned short);
+JG_SET(_uint32, uint32_t);
+JG_SET(_unsigned, unsigned);
+JG_SET(_uint64, uint64_t);
+JG_SET(_unsigned_long, unsigned long);
+JG_SET(_unsigned_long_long, unsigned long long);
+JG_SET(_sizet, size_t);
+JG_SET(_uintmax, uintmax_t);
+
+JG_SET(_float, float);
+JG_SET(_double, double);
+JG_SET(_long_double, long double);

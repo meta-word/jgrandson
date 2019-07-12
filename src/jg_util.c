@@ -242,6 +242,21 @@ void jg_reinit(
     free_all(jg, false);
 }
 
+jg_ret astrcpy(
+    jg_t * jg,
+	char * * dst,
+    char const * src
+) {
+    size_t byte_c = strlen(src);
+    *dst = malloc(byte_c + 1);
+    if (*dst) {
+        return jg->ret = JG_E_MALLOC;
+    }
+    memcpy(*dst, src, byte_c);
+    (*dst)[byte_c] = '\0';
+    return JG_OK;
+}
+
 bool is_utf8_continuation_byte(
     char byte
 ) {
