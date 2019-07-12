@@ -64,13 +64,13 @@ struct jg_val_out {
         struct jg_obj_node * obj; // If .type is OBJ
 
         // Which of these is used depends on whether jg_set_[root|arr|obj]_str()
-        // or jg_set_[root|arr|obj]_astr() is used. Numbers always use .astr.
-        char const * str; // If .type is STR -- null-terminated caller buffer
-        char * astr; // If .type is STR or NUM -- null-terminated heap buffer
+        // or jg_set_[root|arr|obj]_callerstr() is used. Numbers are .str-only.
+        char * str; // If .type is STR or NUM -- null-terminated heap buf
+        char const * callerstr; // If .type is STR -- null-terminated caller buf
     };
     union {
         bool bool_is_true; // The boolean truth value when .type is BOOL
-        bool str_is_astr; // If true, .astr is being used and needs free()ing.
+        bool str_is_callerstr; // String not free()d by JGrandson if true
     };
     enum jg_type type; // The JSON type this value belongs to (see jgrandson.h)
 };
@@ -107,16 +107,24 @@ struct jgrandson {
         struct jg_val_out root_out; // Root JSON value if .state SET or GENERATE
     };    
     // Members below other than .ret and .state are for parsing/getting only.
-    char const * json_text; // The start of the JSON text string to be parsed
-    char const * json_cur; // Current parsing position within .json_text
-    char const * json_over; // The byte following the end of the .json_text buf
-    
-    char const * err_str; // Ref to the string returned by jg_get_err_str()
+    union {
+        // The start of the JSON text string to be parsed: heap buffer copy
+        char * json_text;
+        // Same, except caller buffer is used as-is: NO null-terminator required
+        char const * json_callertext;
+    };
+    char const * json_cur; // Current parsing position within JSON text
+    char const * json_over; // The byte following the end of the JSON text
+   
+    union { 
+        char * err_str; // Ref to a heap string returned by jg_get_err_str()
+        char const * static_err_str; // Same, except the string is static const
+    };
     char * custom_err_str; // A copy of a "..._reason" getter option
     union jg_err_val err_val; // Val associated with the last .ret err condition
     
-    bool json_text_needs_free; // True if jg_parse_astr() was called
-    bool err_str_needs_free; // True for all non-static error strings
+    bool json_is_callertext; // JSON text not free()d by Jgrandson if true
+    bool err_str_is_static; // Error string not free()d (by anyone) if true
 
     jg_ret ret; // The last jg_ret value returned by a public API function
     enum jg_state state;
@@ -125,11 +133,11 @@ struct jgrandson {
 ////////////////////////////////////////////////////////////////////////////////
 // jg_util.c prototypes (internal) /////////////////////////////////////////////
 
-void free_json_text( // Only free()s if jg->json_text_needs_free
+void free_json_text( // Only free()s if not jg->json_is_callertext
     jg_t * jg
 );
 
-void free_err_str( // Only free()s if jg->err_str_needs_free
+void free_err_str( // Only free()s if not jg->err_str_is_static
     jg_t * jg
 );
 
@@ -138,10 +146,11 @@ jg_ret set_custom_err_str(
     char const * custom_err_str
 );
 
-jg_ret astrcpy(
+jg_ret alloc_strcpy(
     jg_t * jg,
     char * * dst,
-    char const * src
+    char const * src,
+    size_t byte_c // excluding null-terminator
 );
 
 bool is_utf8_continuation_byte(

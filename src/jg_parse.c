@@ -647,7 +647,7 @@ static jg_ret parse_root(
     return JG_OK;
 }
 
-// Parse the JSON text string without copying it to a malloc-ed char buffer.
+// Copy the JSON text string to a malloc-ed char buffer, then parse.
 jg_ret jg_parse_str(
     jg_t * jg,
     char const * json_text, // null-terminator not required
@@ -657,13 +657,17 @@ jg_ret jg_parse_str(
         return jg->ret = JG_E_STATE_NOT_PARSE;
     }
     jg->state = JG_STATE_PARSE;
-    jg->json_text = json_text;
-    jg->json_over = jg->json_text + byte_c;
+    JG_GUARD(alloc_strcpy(jg, &jg->json_text, json_text, byte_c));
+    // Overwrite null-terminator with a newline. The parse functions do not
+    // expect a null-terminator, and having a final whitespace char can help
+    // avoid an unnecessary malloc() edge case in jg_root_get_<number_type>().
+    jg->json_text[byte_c] = '\n';
+    jg->json_over = jg->json_text + ++byte_c;
     return jg->ret = parse_root(jg);
 }
 
-// Copy the JSON text string to a malloc-ed char buffer, then parse.
-jg_ret jg_parse_astr(
+// Parse the JSON text string without copying it to a malloc-ed char buffer.
+jg_ret jg_parse_callerstr(
     jg_t * jg,
     char const * json_text, // null-terminator not required
     size_t byte_c // excluding null-terminator
@@ -672,14 +676,9 @@ jg_ret jg_parse_astr(
         return jg->ret = JG_E_STATE_NOT_PARSE;
     }
     jg->state = JG_STATE_PARSE;
-    char * json_text_copy = malloc(byte_c);
-    if (!json_text_copy) {
-        return jg->ret = JG_E_MALLOC;
-    }
-    memcpy(json_text_copy, json_text, byte_c);
-    jg->json_text = json_text_copy;
-    jg->json_text_needs_free = true;
-    jg->json_over = jg->json_text + byte_c;
+    jg->json_callertext = json_text;
+    jg->json_is_callertext = true;
+    jg->json_over = jg->json_callertext + byte_c;
     return jg->ret = parse_root(jg);
 }
 
@@ -711,21 +710,23 @@ jg_ret jg_parse_file(
         byte_c = (size_t) size;
     }
     rewind(f);
-    char * json_text = malloc(byte_c);
-    if (!json_text) {
+    jg->json_text = malloc(byte_c + 1);
+    // Append a newline instead of a null-terminator. The parse functions do not
+    // expect a null-terminator, and having a final whitespace char can help
+    // avoid an unnecessary malloc() edge case in jg_root_get_<number_type>().
+    jg->json_text[byte_c] = '\n';
+    if (!jg->json_text) {
         return jg->ret = JG_E_MALLOC;
     }
-    if (fread(json_text, 1, byte_c, f) != byte_c) {
-        free(json_text);
+    if (fread(jg->json_text, 1, byte_c, f) != byte_c) {
+        free(jg->json_text);
         return jg->ret = JG_E_FREAD;
     }
     if (fclose(f)) {
-        free(json_text);
+        free(jg->json_text);
         jg->err_val.errn = errno;
         return jg->ret = JG_E_ERRNO_FCLOSE;
     }
-    jg->json_text = json_text;
-    jg->json_text_needs_free = true;
-    jg->json_over = jg->json_text + byte_c;
+    jg->json_over = jg->json_text + ++byte_c;
     return jg->ret = parse_root(jg);
 }

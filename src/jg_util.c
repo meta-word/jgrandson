@@ -123,20 +123,18 @@ jg_t * jg_init(
 void free_json_text(
     jg_t * jg
 ) {
-    if (jg->json_text_needs_free) {
-        free((char *) jg->json_text);
+    if (!jg->json_is_callertext && jg->json_text) {
+        free(jg->json_text);
         jg->json_text = NULL;
-        jg->json_text_needs_free = false;
     }
 }
 
 void free_err_str(
     jg_t * jg
 ) {
-    if (jg->err_str_needs_free) {
-        free((char *) jg->err_str);
+    if (!jg->err_str_is_static && jg->err_str) {
+        free(jg->err_str);
         jg->err_str = NULL;
-        jg->err_str_needs_free = false;
     }
 }
 
@@ -242,12 +240,12 @@ void jg_reinit(
     free_all(jg, false);
 }
 
-jg_ret astrcpy(
+jg_ret alloc_strcpy(
     jg_t * jg,
     char * * dst,
-    char const * src
+    char const * src,
+    size_t byte_c
 ) {
-    size_t byte_c = strlen(src);
     *dst = malloc(byte_c + 1);
     if (*dst) {
         return jg->ret = JG_E_MALLOC;
@@ -280,7 +278,8 @@ static char const * get_errno_str(
     // Retrieve and append the errno's string representation
     locale_t loc = newlocale(LC_ALL, "", (locale_t) 0);
     if (loc == (locale_t) 0) {
-        return jg->err_str = err_strs[jg->ret = JG_E_NEWLOCALE];
+        jg->err_str_is_static = true;
+        return jg->static_err_str = err_strs[jg->ret = JG_E_NEWLOCALE];
     }
     // strerror_l() is thread-safe (unlike strerror())
     char const * static_err_str = err_strs[jg->ret];
@@ -288,11 +287,11 @@ static char const * get_errno_str(
     freelocale(loc);
     char * err_str = malloc(strlen(static_err_str) + strlen(errno_str) + 1);
     if (!err_str) {
-        return jg->err_str = err_strs[jg->ret = JG_E_MALLOC];
+        jg->err_str_is_static = true;
+        return jg->static_err_str = err_strs[jg->ret = JG_E_MALLOC];
     }
     strcpy(err_str, static_err_str);
     strcpy(err_str + strlen(static_err_str), errno_str);
-    jg->err_str_needs_free = true;
     return jg->err_str = err_str;
 }
 
@@ -351,7 +350,8 @@ static char const * get_contextual_err_str(
     int byte_c = snprintf(NULL, 0, __VA_ARGS__); \
     char * err_str = malloc(byte_c + 1); \
     if (!err_str) { \
-        return jg->err_str = err_strs[jg->ret = JG_E_MALLOC]; \
+        jg->err_str_is_static = true; \
+        return jg->static_err_str = err_strs[jg->ret = JG_E_MALLOC]; \
     } \
     /* Ignoring the return value considering how unlikely failure is. */ \
     sprintf(err_str, __VA_ARGS__)
@@ -411,7 +411,8 @@ char const * jg_get_err_str(
     case JG_E_REALLOC:
     case JG_E_NEWLOCALE:
     case JG_E_FREAD:
-        return jg->err_str = err_strs[jg->ret];
+        jg->err_str_is_static = true;
+        return jg->static_err_str = err_strs[jg->ret];
     case JG_E_ERRNO_FOPEN:
     case JG_E_ERRNO_FCLOSE:
     case JG_E_ERRNO_FSEEKO:

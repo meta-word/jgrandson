@@ -72,7 +72,7 @@ static jg_ret append_obj_node(
     if (!node) {
         return jg->ret = JG_E_CALLOC;
     }
-    JG_GUARD(astrcpy(jg, &node->key, key));
+    JG_GUARD(alloc_strcpy(jg, &node->key, key, strlen(key)));
     *child = &node->val;
     return JG_OK;
 }
@@ -141,9 +141,9 @@ JG_SET_FUNC(_arr, jg_arr_set_t * *, JG_TYPE_ARR, *v = child)
 
 JG_SET_FUNC(_obj, jg_obj_set_t * *, JG_TYPE_OBJ, *v = child)
 
-JG_SET_FUNC(_str, char const *, JG_TYPE_STR, child->str = v)
-JG_SET_FUNC(_astr, char const *, JG_TYPE_STR,
-    JG_GUARD(astrcpy(jg, &child->astr, v)))
+JG_SET_FUNC(_str, char const *, JG_TYPE_STR,
+    JG_GUARD(alloc_strcpy(jg, &child->str, v, strlen(v))))
+JG_SET_FUNC(_callerstr, char const *, JG_TYPE_STR, child->callerstr = v)
 
 JG_SET_FUNC(_bool, bool, JG_TYPE_BOOL, child->bool_is_true = v)
 

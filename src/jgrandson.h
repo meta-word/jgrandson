@@ -142,15 +142,15 @@ char const * jg_get_err_str(
 //##############################################################################
 //## jg_parse_...() prototypes #################################################
 
-// Parse the JSON text string without copying it to a malloc-ed char buffer.
+// Copy the JSON text string to a malloc-ed char buffer, then parse.
 jg_ret jg_parse_str(
     jg_t * jg,
     char const * json_text, // null-terminator not required
     size_t byte_c // excluding null-terminator
 );
 
-// Copy the JSON text string to a malloc-ed char buffer, then parse.
-jg_ret jg_parse_astr(
+// Parse the JSON text string without copying it to a malloc-ed char buffer.
+jg_ret jg_parse_callerstr(
     jg_t * jg,
     char const * json_text, // null-terminator not required
     size_t byte_c // excluding null-terminator
@@ -292,16 +292,20 @@ jg_ret jg_obj_get_obj_defa(
 );
 
 ////////////////////////////////////////////////////////////////////////////////
-// jg_[root|arr|obj]_get_(a)str() //////////////////////////////////////////////
+// jg_[root|arr|obj]_get_(caller)str() /////////////////////////////////////////
 
-// These getters come in two forms with regard to the destination buffer "v":
-// * ..._get_str(): the string is copied into a caller-supplied char "v".
-// * ..._get_astr(): the string is copied into a malloc()ed char "v".
-
-// To obtain the size needed for a caller-supplied buffer, use the
-// "sprintf(NULL, 0, ...) pattern": call ..._get_(u)str() with a "v" of NULL
-// and a non-NULL "byte_c" pointer. (Then allocate a "v" of size
-// "byte_c (+ 1)", and call _get_(u)str() again with that non-NULL "v".)
+// These getters come in two forms with regard to the destination buffer "v".
+//
+// 1) jg_[root|arr|obj]_get_str():
+//     The string is copied into a malloc()ed char buffer "v". Jgrandson will
+//     never free() this buffer: doing so is the responsibility of the caller.
+//
+// 2) jg_[root|arr|obj]_get_callerstr():
+//    The string is copied into a caller-supplied buffer "v". To obtain the size
+//    needed for this caller-supplied buffer, use the "sprintf(NULL, 0, ...)
+//    paradigm": call ..._get_caller_str() with a "v" of NULL and a non-NULL
+//    "byte_c" pointer. (Then allocate a "v" of size "byte_c (+ 1)", and call
+//    ..._get_callerstr() again with that non-NULL "v".)
 
 #define JG_OPT_STR_COMMON \
     size_t * byte_c; \
@@ -330,14 +334,14 @@ typedef struct jg_opt_str jg_root_str;
 jg_ret jg_root_get_str(
     jg_t * jg,
     jg_root_str * opt,
-    char * v
+    char * * v
 );
 
-typedef struct jg_opt_str jg_root_astr;
-jg_ret jg_root_get_astr(
+typedef struct jg_opt_str jg_root_callerstr;
+jg_ret jg_root_get_callerstr(
     jg_t * jg,
-    jg_root_astr * opt,
-    char * * v
+    jg_root_callerstr * opt,
+    char * v
 );
 
 typedef struct jg_opt_str jg_arr_str;
@@ -346,16 +350,16 @@ jg_ret jg_arr_get_str(
     jg_arr_get_t * arr,
     size_t arr_i,
     jg_arr_str * opt,
-    char * v
+    char * * v
 );
 
-typedef struct jg_opt_str jg_arr_astr;
-jg_ret jg_arr_get_astr(
+typedef struct jg_opt_str jg_arr_callerstr;
+jg_ret jg_arr_get_callerstr(
     jg_t * jg,
     jg_arr_get_t * arr,
     size_t arr_i,
-    jg_arr_astr * opt,
-    char * * v
+    jg_arr_callerstr * opt,
+    char * v
 );
 
 typedef struct jg_opt_obj_str jg_obj_str;
@@ -364,16 +368,16 @@ jg_ret jg_obj_get_str(
     jg_obj_get_t * obj,
     char const * key,
     jg_obj_str * opt,
-    char * v
+    char * * v
 );
 
-typedef struct jg_opt_obj_str jg_obj_astr;
-jg_ret jg_obj_get_astr(
+typedef struct jg_opt_obj_str jg_obj_callerstr;
+jg_ret jg_obj_get_callerstr(
     jg_t * jg,
     jg_obj_get_t * obj,
     char const * key,
-    jg_obj_astr * opt,
-    char * * v
+    jg_obj_callerstr * opt,
+    char * v
 );
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -588,7 +592,7 @@ JG_SET(_arr, jg_arr_set_t * *);
 JG_SET(_obj, jg_obj_set_t * *);
 
 JG_SET(_str, char const *);
-JG_SET(_astr, char const *);
+JG_SET(_callerstr, char const *);
 
 JG_SET(_bool, bool);
 

@@ -367,7 +367,7 @@ jg_ret jg_obj_get_obj_defa(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// ..._get_*str*() /////////////////////////////////////////////////////////////
+// jg_[root|arr|obj]_get_(caller)str() /////////////////////////////////////////
 
 static size_t get_str_char_c(
     char const * str,
@@ -484,17 +484,17 @@ static jg_ret root_get_str(
 jg_ret jg_root_get_str(
     jg_t * jg,
     jg_root_str * opt,
-    char * v
-) {
-    return root_get_str(jg, opt, false, &v);
-}
-
-jg_ret jg_root_get_astr(
-    jg_t * jg,
-    jg_root_astr * opt,
     char * * v
 ) {
     return root_get_str(jg, opt, true, v);
+}
+
+jg_ret jg_root_get_callerstr(
+    jg_t * jg,
+    jg_root_callerstr * opt,
+    char * v
+) {
+    return root_get_str(jg, opt, false, &v);
 }
 
 static jg_ret arr_get_str(
@@ -528,19 +528,19 @@ jg_ret jg_arr_get_str(
     struct jg_arr const * arr,
     size_t arr_i,
     jg_arr_str * opt,
-    char * v
-) {
-    return arr_get_str(jg, arr, arr_i, opt, false, &v);
-}
-
-jg_ret jg_arr_get_astr(
-    jg_t * jg,
-    struct jg_arr const * arr,
-    size_t arr_i,
-    jg_arr_astr * opt,
     char * * v
 ) {
     return arr_get_str(jg, arr, arr_i, opt, true, v);
+}
+
+jg_ret jg_arr_get_callerstr(
+    jg_t * jg,
+    struct jg_arr const * arr,
+    size_t arr_i,
+    jg_arr_callerstr * opt,
+    char * v
+) {
+    return arr_get_str(jg, arr, arr_i, opt, false, &v);
 }
 
 static jg_ret obj_get_str(
@@ -588,19 +588,19 @@ jg_ret jg_obj_get_str(
     struct jg_obj const * obj,
     char const * key,
     jg_obj_str * opt,
-    char * v
-) {
-    return obj_get_str(jg, obj, key, opt, false, &v);
-}
-
-jg_ret jg_obj_get_astr(
-    jg_t * jg,
-    struct jg_obj const * obj,
-    char const * key,
-    jg_obj_astr * opt,
     char * * v
 ) {
     return obj_get_str(jg, obj, key, opt, true, v);
+}
+
+jg_ret jg_obj_get_callerstr(
+    jg_t * jg,
+    struct jg_obj const * obj,
+    char const * key,
+    jg_obj_callerstr * opt,
+    char * v
+) {
+    return obj_get_str(jg, obj, key, opt, false, &v);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
