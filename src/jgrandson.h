@@ -201,6 +201,7 @@ struct jg_opt_arr {
     size_t min_c;
     size_t max_c;
 };
+
 struct jg_opt_arr_defa {
     char const * max_c_reason;
     size_t max_c;
@@ -255,6 +256,7 @@ struct jg_opt_obj {
     size_t min_c;
     size_t max_c;
 };
+
 struct jg_opt_obj_defa {
     char * * * keys;
     size_t * key_c;
@@ -326,13 +328,16 @@ jg_ret jg_obj_get_obj_defa(
     bool nullify_empty_str; \
     bool omit_null_terminator
 //  bool unescape; -- todo: unescaping isn't implemented yet ):
+
 struct jg_opt_str {
     JG_OPT_STR_COMMON;
 };
+
 struct jg_opt_obj_str {
     char const * defa;
     JG_OPT_STR_COMMON;
 };
+
 #undef JG_OPT_STR_COMMON
 
 typedef struct jg_opt_str jg_root_str;
@@ -467,6 +472,7 @@ struct jg_opt##_suf { \
     _type min; \
     _type max; \
 }; \
+\
 struct jg_opt_obj##_suf { \
     _type const * defa; \
     char const * min_reason; \
@@ -628,3 +634,37 @@ JG_SET(_uintmax, uintmax_t);
 JG_SET(_float, float);
 JG_SET(_double, double);
 JG_SET(_long_double, long double);
+
+//##############################################################################
+//## jg_generate_...() prototypes (jg_generate.c) ##############################
+
+struct jg_opt_whitespace {
+    // The number of spaces (or tabs if indent_is_tab is true) to use for each
+    // indentation level. Ignored if no_whitespace is true.
+    size_t * indent; // Default: 2
+
+    // If true, use tab characters instead of spaces for indentation.
+    bool indent_is_tab; // Default: false
+
+    // If true, prepend a carriage return ('\r') to any line feed ('\n'), for
+    // Windows-style ("\r\n") newlines instead of Unix-style ("\n") newlines.
+    bool include_cr; // Default: false
+
+    // If true, don't bother including any whitespace at all (and ignore the
+    // options above). Does not affect the .no_newline_before_eof flag below.
+    bool no_whitespace; // Default: false
+
+    // Only applicable to jg_generate_file(): by default Jgrandson writes a
+    // final newline when saving the generated JSON as a text file -- as
+    // is expected of all text files in the Unix world. Set this to true to
+    // overrule that default.
+    bool no_newline_before_eof; // jg_generate_file() default: false
+};
+
+typedef struct jg_opt_whitespace jg_opt_whitespace;
+
+jg_ret jg_generate_str(
+    jg_t * jg,
+    jg_opt_whitespace * opt,
+    char * * json
+);
