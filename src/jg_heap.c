@@ -63,40 +63,57 @@ jg_ret alloc_strcpy(
     return JG_OK;
 }
 
-// Needed because mutually recursive with free_[array|object]()
-static void free_value_in(
-    struct jg_val_in * v
-);
-
-static void free_array(
-    struct jg_arr * arr
-) {
-    for (struct jg_val_in * elem = arr->elems;
-        elem < arr->elems + arr->elem_c; elem++) {
-        free_value_in(elem);
-    }
-    free(arr);
-}
-
-static void free_object(
-    struct jg_obj * obj
-) {
-    for (struct jg_pair * pair = obj->pairs;
-        pair < obj->pairs + obj->pair_c; pair++) {
-        free_value_in(&pair->val);
-    }
-    free(obj);
-}
-
 static void free_value_in(
     struct jg_val_in * v
 ) {
     switch (v->type) {
     case JG_TYPE_ARR:
-        free_array(v->arr);
+        for (struct jg_val_in * elem = v->arr->elems;
+            elem < v->arr->elems + v->arr->elem_c; elem++) {
+            free_value_in(elem);
+        }
+        free(v->arr);
         return;
     case JG_TYPE_OBJ:
-        free_object(v->obj);
+        for (struct jg_pair * pair = v->obj->pairs;
+            pair < v->obj->pairs + v->obj->pair_c; pair++) {
+            free_value_in(&pair->val);
+        }
+        free(v->obj);
+        return;
+    default:
+        return;
+    }
+}
+
+static void free_value_out(
+    struct jg_val_out * v
+) {
+    switch (v->type) {
+    case JG_TYPE_STR:
+        if (v->str_is_callerstr) {
+            return;
+        }
+        // fall through
+    case JG_TYPE_NUM:
+        free(v->str);
+        return;
+    case JG_TYPE_ARR:
+        for (struct jg_arr_node * node = v->arr; node;) {
+            free_value_out(&node->elem);
+            struct jg_arr_node * node_next = node->next;
+            free(node);
+            node = node_next;
+        }
+        return;
+    case JG_TYPE_OBJ:
+        for (struct jg_obj_node * node = v->obj; node;) {
+            free(node->key);
+            free_value_out(&node->val);
+            struct jg_obj_node * node_next = node->next;
+            free(node);
+            node = node_next;
+        }
         return;
     default:
         return;
@@ -119,7 +136,7 @@ static void free_all(
         break;
     case JG_STATE_SET:
     case JG_STATE_GENERATE: default:
-        ; // todo: free_value_out(&jg->root_out);
+        free_value_out(&jg->root_out);
     }
     free_json_text(jg);
     free_err_str(jg);
