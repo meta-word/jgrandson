@@ -21,9 +21,10 @@ void free_json_text(
 void free_err_str(
     jg_t * jg
 ) {
-    if (!jg->err_str_is_static && jg->err_str) {
+    if (jg->err_str_needs_free) {
         free(jg->err_str);
         jg->err_str = NULL;
+        jg->err_str_needs_free = false;
     }
 }
 

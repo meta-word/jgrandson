@@ -124,7 +124,7 @@ struct jgrandson {
     union jg_err_val err_val; // Val associated with the last .ret err condition
     
     bool json_is_callertext; // JSON text not free()d by Jgrandson if true
-    bool err_str_is_static; // Error string not free()d (by anyone) if true
+    bool err_str_needs_free; // Not to be free()d (by anyone) if false
 
     jg_ret ret; // The last jg_ret value returned by a public API function
     enum jg_state state;
@@ -137,7 +137,7 @@ void free_json_text( // Only free()s if not jg->json_is_callertext
     jg_t * jg
 );
 
-void free_err_str( // Only free()s if not jg->err_str_is_static
+void free_err_str( // Only free()s if not jg->err_str_needs_free
     jg_t * jg
 );
 

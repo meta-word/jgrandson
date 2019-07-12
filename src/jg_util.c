@@ -9,6 +9,7 @@
 #include "jgrandson_internal.h"
 
 #include <locale.h> // newlocale()
+#include <stdarg.h> // vs(n)printf()
 
 #define JG_REINIT_MSG "To free any existing state and reset Jgrandson to its " \
     "initial state, call jg_reinit()."
@@ -33,92 +34,127 @@ static char const * err_strs[] = {
 /*05*/ "Unsuccessful malloc()",
 /*06*/ "Unsuccessful calloc()",
 /*07*/ "Unsuccessful realloc()",
-/*08*/ "Unsuccessful newlocale()",
-/*09*/ "Unsuccessful fread()",
+/*08*/ "Unsuccessful vsprintf()",
+/*09*/ "Unsuccessful vsnprintf()",
+/*10*/ "Unsuccessful newlocale()",
+/*11*/ "Unsuccessful fread()",
        // external errors with errno
-/*10*/ "Unsuccessful fopen(): ",
-/*11*/ "Unsuccessful fclose(): ",
-/*12*/ "Unsuccessful fseeko(..., SEEK_END): ",
-/*13*/ "Unsuccessful ftello(): ",
+/*12*/ "Unsuccessful fopen(): ",
+/*13*/ "Unsuccessful fclose(): ",
+/*14*/ "Unsuccessful fseeko(..., SEEK_END): ",
+/*15*/ "Unsuccessful ftello(): ",
        // parsing errors (with JSON text context)
-/*14*/ "Invalid JSON type",
-/*15*/ "Unterminated string: closing double-quote ('\"') not found",
-/*16*/ "Unterminated array: closing square bracket (']') not found",
-/*17*/ "Unterminated object: closing curly brace ('}') not found",
-/*18*/ "JSON type starting with an \"f\" does not spell \"false\" as expected",
-/*19*/ "JSON type starting with a \"t\" does not spell \"true\" as expected",
-/*20*/ "JSON type starting with an \"n\" does not spell \"null\" as expected",
-/*21*/ "A minus sign must be followed by a digit",
-/*22*/ "A number starting with a zero may only consist of multiple characters "
+/*16*/ "Invalid JSON type",
+/*17*/ "Unterminated string: closing double-quote ('\"') not found",
+/*18*/ "Unterminated array: closing square bracket (']') not found",
+/*19*/ "Unterminated object: closing curly brace ('}') not found",
+/*20*/ "JSON type starting with an \"f\" does not spell \"false\" as expected",
+/*21*/ "JSON type starting with a \"t\" does not spell \"true\" as expected",
+/*22*/ "JSON type starting with an \"n\" does not spell \"null\" as expected",
+/*23*/ "A minus sign must be followed by a digit",
+/*24*/ "A number starting with a zero may only consist of multiple characters "
        "if its 2nd character is a decimal point",
-/*23*/ "Number contains an invalid character",
-/*24*/ "Numbers must not contain multiple decimal points",
-/*25*/ "The exponent part of a number following an \"e\" or \"E\" must contain "
+/*25*/ "Number contains an invalid character",
+/*26*/ "Numbers must not contain multiple decimal points",
+/*27*/ "The exponent part of a number following an \"e\" or \"E\" must contain "
        "one or more digits, the first of which may optionally be preceded by a "
        "a single \"+\" or \"-\" sign only",
-/*26*/ "Invalid character in the exponent part of a number",
-/*27*/ "Jgrandson does not support parsing numbers with billions of digits",
-/*28*/ "String contains invalid UTF-8 byte sequence",
-/*29*/ "Control characters (U+0000 through U+001F) in strings must be escaped",
-/*30*/ "String contains a backslash escape character not followed by a "
+/*28*/ "Invalid character in the exponent part of a number",
+/*29*/ "Jgrandson does not support parsing numbers with billions of digits",
+/*30*/ "String contains invalid UTF-8 byte sequence",
+/*31*/ "Control characters (U+0000 through U+001F) in strings must be escaped",
+/*32*/ "String contains a backslash escape character not followed by a "
         "'\\', '/', ' ', '\"', 'b', 'f', 'n', 'r', 't', or 'u'",
-/*31*/ "String contains an invalid hexadecimal UTF-16 code point sequence "
+/*33*/ "String contains an invalid hexadecimal UTF-16 code point sequence "
        "following a \"\\u\" escape sequence",
-/*32*/ "String contains an escaped UTF-16 high surrogate (\\uDC00 through "
+/*34*/ "String contains an escaped UTF-16 high surrogate (\\uDC00 through "
        "\\uDFFF) not preceded by a UTF-16 low surrogate (\\uD800 through "
        "\\uDBFF)",
-/*33*/ "String contains an escaped UTF-16 low surrogate (\\uD800 through "
+/*35*/ "String contains an escaped UTF-16 low surrogate (\\uD800 through "
        "\\uDBFF) not followed by a UTF-16 high surrogate (\\uDC00 through "
        "\\uDFFF).",
-/*34*/ "Jgrandson does not support parsing string sizes greater than 4GB",
-/*35*/ "Array elements must be followed by a comma (',') or a closing bracket "
+/*36*/ "Jgrandson does not support parsing string sizes greater than 4GB",
+/*37*/ "Array elements must be followed by a comma (',') or a closing bracket "
        "(']')",
-/*36*/ "The key of a key-value pair must be of type string "
+/*38*/ "The key of a key-value pair must be of type string "
        "(i.e., keys must be enclosed in quotation marks)",
-/*37*/ "The key and value of a key-value pair must be separated by a colon "
+/*39*/ "The key and value of a key-value pair must be separated by a colon "
        "(':')",
-/*38*/ "Key-value pairs must be followed by a comma (',') or a closing brace "
+/*40*/ "Key-value pairs must be followed by a comma (',') or a closing brace "
        "('}')",
-/*39*/ "Jgrandson does not allow duplicate keys within the same object",
-/*40*/ "A JSON text must contain only one root value (see rfc8259)",
+/*41*/ "Jgrandson does not allow duplicate keys within the same object",
+/*42*/ "A JSON text must contain only one root value (see rfc8259)",
        // getter errors
-/*41*/ "Expected JSON type \"null\"",
-/*42*/ "Expected JSON type \"boolean\"",
-/*43*/ "Expected JSON type \"number\"",
-/*44*/ "Expected JSON type \"string\"",
-/*45*/ "Expected JSON type \"array\"",
-/*46*/ "Expected JSON type \"object\"",
-/*47*/ "Expected an array long enough to have an element with index %zu "
+/*43*/ "Expected JSON type \"null\"",
+/*44*/ "Expected JSON type \"boolean\"",
+/*45*/ "Expected JSON type \"number\"",
+/*46*/ "Expected JSON type \"string\"",
+/*47*/ "Expected JSON type \"array\"",
+/*48*/ "Expected JSON type \"object\"",
+/*49*/ "Expected an array long enough to have an element with index %zu "
        "(counting from zero)",
-/*48*/ "Expected an array with at least %zu elements",
-/*49*/ "Expected an array with at most %zu elements",
-/*50*/ "Expected an object with a key named",
-/*51*/ "Expected an object with at least %zu key-value pairs",
-/*52*/ "Expected an object with at most %zu key-value pairs",
-/*53*/ "Expected a string consisting of at least %zu bytes "
+/*50*/ "Expected an array with at least %zu elements",
+/*51*/ "Expected an array with at most %zu elements",
+/*52*/ "Expected an object with a key named",
+/*53*/ "Expected an object with at least %zu key-value pairs",
+/*54*/ "Expected an object with at most %zu key-value pairs",
+/*55*/ "Expected a string consisting of at least %zu bytes "
        "(excluding null-terminator)",
-/*54*/ "Expected a string consisting of no more than %zu bytes "
+/*56*/ "Expected a string consisting of no more than %zu bytes "
        "(excluding null-terminator)",
-/*55*/ "Expected a string consisting of at least %zu UTF-8 characters",
-/*56*/ "Expected a string consisting of no more than %zu UTF-8 characters",
-/*57*/ "Expected an integer "
+/*57*/ "Expected a string consisting of at least %zu UTF-8 characters",
+/*58*/ "Expected a string consisting of no more than %zu UTF-8 characters",
+/*59*/ "Expected an integer "
        "(i.e., a number without decimal point or exponent part)",
-/*58*/ "Expected an unsigned integer",
-/*59*/ "Expected a signed integer no less than %" PRIiMAX,
-/*60*/ "Expected a signed integer no greater than %" PRIiMAX,
-/*61*/ "Expected an unsigned integer no less than %" PRIuMAX,
-/*62*/ "Expected an unsigned integer no greater than %" PRIuMAX,
-/*63*/ "Expected a number that can be converted to a floating point type",
-/*64*/ "Expected a number within the range representable by type \"float",
-/*65*/ "Expected a number within the range representable by type \"double",
-/*66*/ "Expected a number within the range representable by type \"long double"
+/*60*/ "Expected an unsigned integer",
+/*61*/ "Expected a signed integer no less than %" PRIiMAX,
+/*62*/ "Expected a signed integer no greater than %" PRIiMAX,
+/*63*/ "Expected an unsigned integer no less than %" PRIuMAX,
+/*64*/ "Expected an unsigned integer no greater than %" PRIuMAX,
+/*65*/ "Expected a number that can be converted to a floating point type",
+/*66*/ "Expected a number within the range representable by type \"float",
+/*67*/ "Expected a number within the range representable by type \"double",
+/*68*/ "Expected a number within the range representable by type \"long double"
 };
 
-bool is_utf8_continuation_byte(
-    char byte
+static jg_ret get_print_byte_c(
+    jg_t * jg,
+    int * byte_c,
+    char const * fmt,
+    va_list args
 ) {
-    // True if 0b10XXXXXX, otherwise false.
-    return ((uint8_t) byte & 0xC0) == 0x80;
+    return (*byte_c = vsnprintf(NULL, 0, fmt, args)) < 0 ?
+        (jg->ret = JG_E_VSNPRINTF) : JG_OK;
+}
+
+static jg_ret print_str(
+    jg_t * jg,
+    char * str,
+    char const * fmt,
+    va_list args
+) {
+    return vsprintf(str, fmt, args) < 0 ? (jg->ret = JG_E_VSPRINTF) : JG_OK;
+}
+
+jg_ret print_alloc_str(
+    jg_t * jg,
+    char * * str,
+    char const * fmt,
+    ...
+) {
+    int byte_c = 0;
+    va_list args;
+    va_start(args, fmt);
+    JG_GUARD(get_print_byte_c(jg, &byte_c, fmt, args));
+    va_end(args);
+    *str = malloc(byte_c + 1);
+    if (!*str) {
+        return jg->ret = JG_E_MALLOC;
+    }
+    va_start(args, fmt);
+    JG_GUARD(print_str(jg, *str, fmt, args));
+    va_end(args);
+    return JG_OK;
 }
 
 static size_t get_utf8_char_size(
@@ -137,7 +173,6 @@ static char const * get_errno_str(
     // Retrieve and append the errno's string representation
     locale_t loc = newlocale(LC_ALL, "", (locale_t) 0);
     if (loc == (locale_t) 0) {
-        jg->err_str_is_static = true;
         return jg->static_err_str = err_strs[jg->ret = JG_E_NEWLOCALE];
     }
     // strerror_l() is thread-safe (unlike strerror())
@@ -146,11 +181,11 @@ static char const * get_errno_str(
     freelocale(loc);
     char * err_str = malloc(strlen(static_err_str) + strlen(errno_str) + 1);
     if (!err_str) {
-        jg->err_str_is_static = true;
         return jg->static_err_str = err_strs[jg->ret = JG_E_MALLOC];
     }
     strcpy(err_str, static_err_str);
     strcpy(err_str + strlen(static_err_str), errno_str);
+    jg->err_str_needs_free = true;
     return jg->err_str = err_str;
 }
 
@@ -205,17 +240,11 @@ static char const * get_contextual_err_str(
     if (!err_mark_after) {
         err_mark_after = err_mark_after_default;
     }
-#define JG_ASPRINTF(...) \
-    int byte_c = snprintf(NULL, 0, __VA_ARGS__); \
-    char * err_str = malloc(byte_c + 1); \
-    if (!err_str) { \
-        jg->err_str_is_static = true; \
-        return jg->static_err_str = err_strs[jg->ret = JG_E_MALLOC]; \
-    } \
-    /* Ignoring the return value considering how unlikely failure is. */ \
-    sprintf(err_str, __VA_ARGS__)
+    char * err_str = NULL;
+    jg_ret ret = JG_OK;
     if (jg->custom_err_str) {
-        JG_ASPRINTF("%s: %s: [LINE %zu, CHAR %zu] %s%s%s%s%s",
+        ret = print_alloc_str(jg, &err_str,
+            "%s: %s: [LINE %zu, CHAR %zu] %s%s%s%s%s",
             main_err_str,
             jg->custom_err_str,
             line_i,
@@ -228,30 +257,25 @@ static char const * get_contextual_err_str(
         );
         free(jg->custom_err_str);
         jg->custom_err_str = NULL;
-        return jg->err_str = err_str;
+    } else {
+        ret = print_alloc_str(jg, &err_str,
+            "%s: [LINE %zu, CHAR %zu] %s%s%s%s%s",
+            main_err_str,
+            line_i,
+            char_i,
+            context_before,
+            err_mark_before,
+            err_char,
+            err_mark_after,
+            context_after
+        );
     }
-    JG_ASPRINTF("%s: [LINE %zu, CHAR %zu] %s%s%s%s%s",
-        main_err_str,
-        line_i,
-        char_i,
-        context_before,
-        err_mark_before,
-        err_char,
-        err_mark_after,
-        context_after
-    );
+    if (ret != JG_OK) {
+        return jg->static_err_str = err_strs[ret];
+    }
+    jg->err_str_needs_free = true;
     return jg->err_str = err_str;
-#undef JG_ASPRINTF
 }
-
-#define JG_GET_ERR_STR_WITH_ERR_VAL(_err_val) \
-do { \
-    /* Use VLA for str because short-lived with known upper size bound. */ \
-    char str[snprintf(NULL, 0, err_strs[jg->ret], _err_val) + 1]; \
-    /* Args to s(n)printf() are known constants, so forego on err checking. */ \
-    sprintf(str, err_strs[jg->ret], _err_val); \
-    return get_contextual_err_str(jg, str, err_mark_before, err_mark_after); \
-} while (0)
 
 char const * jg_get_err_str(
     jg_t * jg,
@@ -259,6 +283,8 @@ char const * jg_get_err_str(
     char const * err_mark_after
 ) {
     free_err_str(jg);
+    char * main_err_str = NULL;
+    jg_ret print_alloc_ret = JG_OK;
     switch (jg->ret) {
     case JG_OK:
     case JG_E_STATE_NOT_PARSE:
@@ -268,9 +294,10 @@ char const * jg_get_err_str(
     case JG_E_MALLOC:
     case JG_E_CALLOC:
     case JG_E_REALLOC:
+    case JG_E_VSPRINTF:
+    case JG_E_VSNPRINTF:
     case JG_E_NEWLOCALE:
     case JG_E_FREAD:
-        jg->err_str_is_static = true;
         return jg->static_err_str = err_strs[jg->ret];
     case JG_E_ERRNO_FOPEN:
     case JG_E_ERRNO_FCLOSE:
@@ -286,15 +313,28 @@ char const * jg_get_err_str(
     case JG_E_GET_STR_BYTE_C_TOO_MANY:
     case JG_E_GET_STR_CHAR_C_TOO_FEW:
     case JG_E_GET_STR_CHAR_C_TOO_MANY:
-        JG_GET_ERR_STR_WITH_ERR_VAL(jg->err_val.s); // evilly returns in macro
+        print_alloc_ret = print_alloc_str(jg, &main_err_str, err_strs[jg->ret],
+            jg->err_val.s);
+        break;
     case JG_E_GET_NUM_SIGNED_TOO_SMALL:
     case JG_E_GET_NUM_SIGNED_TOO_LARGE:
-        JG_GET_ERR_STR_WITH_ERR_VAL(jg->err_val.i); // evilly returns in macro
+        print_alloc_ret = print_alloc_str(jg, &main_err_str, err_strs[jg->ret],
+            jg->err_val.i);
+        break;
     case JG_E_GET_NUM_UNSIGNED_TOO_SMALL:
     case JG_E_GET_NUM_UNSIGNED_TOO_LARGE:
-        JG_GET_ERR_STR_WITH_ERR_VAL(jg->err_val.u); // evilly returns in macro
+        print_alloc_ret = print_alloc_str(jg, &main_err_str, err_strs[jg->ret],
+            jg->err_val.u);
+        break;
     default:
         return get_contextual_err_str(jg, err_strs[jg->ret], err_mark_before,
             err_mark_after);
     }
+    if (print_alloc_ret != JG_OK) {
+        return jg->static_err_str = err_strs[print_alloc_ret];
+    }
+    char const * err_str = get_contextual_err_str(jg, main_err_str,
+        err_mark_before, err_mark_after);
+    free(main_err_str);
+    return err_str;
 }
