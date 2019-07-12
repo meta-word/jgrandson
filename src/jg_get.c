@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright © 2019 William Budd
+
 #include "jgrandson_internal.h"
 
 static jg_ret check_state_get(

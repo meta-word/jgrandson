@@ -119,7 +119,7 @@ typedef enum {
 } while (0)
 
 //##############################################################################
-//## generic prototypes (jg_util.c) ############################################
+//## general prototypes (jg_heap.c) ############################################
 
 jg_t * jg_init(
     void
@@ -133,6 +133,9 @@ void jg_reinit(
     jg_t * jg
 );
 
+//##############################################################################
+//## general prototypes (jg_util.c) ############################################
+
 char const * jg_get_err_str(
     jg_t * jg,
     char const * err_mark_before,
@@ -140,7 +143,7 @@ char const * jg_get_err_str(
 );
 
 //##############################################################################
-//## jg_parse_...() prototypes #################################################
+//## jg_parse_...() prototypes (jg_parse.c) ####################################
 
 // Copy the JSON text string to a malloc-ed char buffer, then parse.
 jg_ret jg_parse_str(
@@ -163,7 +166,7 @@ jg_ret jg_parse_file(
 );
 
 //##############################################################################
-//## jg_[root|arr|obj]_get_...() prototypes ####################################
+//## jg_[root|arr|obj]_get_...() prototypes (jg_get.c) #########################
 
 ////////////////////////////////////////////////////////////////////////////////
 // jg_[root|arr|obj]_get_json_type() ///////////////////////////////////////////
@@ -544,7 +547,7 @@ JG_GET_FLO(_double, double);
 JG_GET_FLO(_long_double, long double);
 
 //##############################################################################
-//## jg_[root|arr|obj]_set_...() prototypes ####################################
+//## jg_[root|arr|obj]_set_...() prototypes (jg_set.c) #########################
 
 jg_ret jg_root_set_null(
     jg_t * jg
