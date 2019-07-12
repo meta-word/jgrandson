@@ -61,7 +61,7 @@ static jg_ret append_obj_node(
     if (node) {
         while (node->next) {
             if (!strcmp(node->key, key)) {
-                return jg->ret = JG_E_SET_DUPLICATE_KEY;
+                return jg->ret = JG_E_SET_OBJ_DUPLICATE_KEY;
             }
             node = node->next;
         }
@@ -147,12 +147,9 @@ JG_SET_FUNC(_callerstr, char const *, JG_TYPE_STR, child->callerstr = v)
 
 JG_SET_FUNC(_bool, bool, JG_TYPE_BOOL, child->bool_is_true = v)
 
-// todo
-#define JG_ASTR_PRINT(...) (void) child; (void) v
-
 #define JG_SET_FUNC_NUM(_suf, _type, _num_fmt) \
     JG_SET_FUNC(_suf, _type, JG_TYPE_NUM, \
-        JG_ASTR_PRINT(child->str, "%" _num_fmt, v))
+        JG_GUARD(print_alloc_str(jg, &child->str, "%" _num_fmt, v)))
 
 JG_SET_FUNC_NUM(_int8, int8_t, PRId8)
 JG_SET_FUNC_NUM(_char, char, "c")

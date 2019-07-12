@@ -156,6 +156,13 @@ jg_ret alloc_strcpy(
 ////////////////////////////////////////////////////////////////////////////////
 // jg_util.c prototypes (internal) /////////////////////////////////////////////
 
+jg_ret print_alloc_str(
+    jg_t * jg,
+    char * * str,
+    char const * fmt,
+    ...
+);
+
 bool is_utf8_continuation_byte(
     char byte
 );
