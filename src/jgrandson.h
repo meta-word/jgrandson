@@ -169,22 +169,22 @@ jg_ret jg_parse_file(
 // jg_[root|arr|obj]_get_json_type() ///////////////////////////////////////////
 
 jg_ret jg_root_get_json_type(
-	jg_t * jg,
-    enum jg_type * dst
+    jg_t * jg,
+    enum jg_type * type
 );
 
 jg_ret jg_arr_get_json_type(
-	jg_t * jg,
-	jg_arr_get_t const * src,
-	size_t src_i,
-    enum jg_type * dst
+    jg_t * jg,
+    jg_arr_get_t * arr,
+    size_t arr_i,
+    enum jg_type * type
 );
 
 jg_ret jg_obj_get_json_type(
-	jg_t * jg,
-	jg_obj_get_t const * src,
-	char const * key,
-    enum jg_type * dst
+    jg_t * jg,
+    jg_obj_get_t * obj,
+    char const * key,
+    enum jg_type * type
 );
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -193,115 +193,115 @@ jg_ret jg_obj_get_json_type(
 struct jg_opt_arr {
     char const * min_c_reason;
     char const * max_c_reason;
-	size_t min_c;
-	size_t max_c;
+    size_t min_c;
+    size_t max_c;
 };
 struct jg_opt_arr_defa {
     char const * max_c_reason;
-	size_t max_c;
+    size_t max_c;
 };
 
 typedef struct jg_opt_arr jg_root_arr;
 jg_ret jg_root_get_arr(
-	jg_t * jg,
-	jg_root_arr * opt,
-	jg_arr_get_t * * dst,
-	size_t * elem_c
+    jg_t * jg,
+    jg_root_arr * opt,
+    jg_arr_get_t * * v,
+    size_t * elem_c
 );
 
 typedef struct jg_opt_arr jg_arr_arr;
 jg_ret jg_arr_get_arr(
-	jg_t * jg,
-	jg_arr_get_t const * src,
-	size_t src_i,
+    jg_t * jg,
+    jg_arr_get_t * arr,
+    size_t arr_i,
     jg_arr_arr * opt,
-	jg_arr_get_t * * dst,
-	size_t * elem_c
+    jg_arr_get_t * * v,
+    size_t * elem_c
 );
 
 typedef struct jg_opt_arr jg_obj_arr;
 jg_ret jg_obj_get_arr(
-	jg_t * jg,
-	jg_obj_get_t const * src,
-	char const * key,
+    jg_t * jg,
+    jg_obj_get_t * obj,
+    char const * key,
     jg_obj_arr * opt,
-	jg_arr_get_t * * dst,
-	size_t * elem_c
+    jg_arr_get_t * * v,
+    size_t * elem_c
 );
 
 typedef struct jg_opt_arr_defa jg_obj_arr_defa;
 jg_ret jg_obj_get_arr_defa(
-	jg_t * jg,
-	jg_obj_get_t const * src,
-	char const * key,
+    jg_t * jg,
+    jg_obj_get_t * obj,
+    char const * key,
     jg_obj_arr_defa * opt,
-	jg_arr_get_t * * dst,
-	size_t * elem_c
+    jg_arr_get_t * * v,
+    size_t * elem_c
 );
 
 ////////////////////////////////////////////////////////////////////////////////
 // jg_[root|arr|obj]_get_obj() /////////////////////////////////////////////////
 
 struct jg_opt_obj {
-	char * * * keys;
-	size_t * key_c;
+    char * * * keys;
+    size_t * key_c;
     char const * min_c_reason;
     char const * max_c_reason;
-	size_t min_c;
-	size_t max_c;
+    size_t min_c;
+    size_t max_c;
 };
 struct jg_opt_obj_defa {
-	char * * * keys;
-	size_t * key_c;
+    char * * * keys;
+    size_t * key_c;
     char const * max_c_reason;
-	size_t max_c;
+    size_t max_c;
 };
 
 typedef struct jg_opt_obj jg_root_obj;
 jg_ret jg_root_get_obj(
-	jg_t * jg,
+    jg_t * jg,
     jg_root_obj * opt,
-	jg_obj_get_t * * dst
+    jg_obj_get_t * * v
 );
 
 typedef struct jg_opt_obj jg_arr_obj;
 jg_ret jg_arr_get_obj(
-	jg_t * jg,
-	jg_arr_get_t const * src,
-	size_t src_i,
+    jg_t * jg,
+    jg_arr_get_t * arr,
+    size_t arr_i,
     jg_arr_obj * opt,
-	jg_obj_get_t * * dst
+    jg_obj_get_t * * v
 );
 
 typedef struct jg_opt_obj jg_obj_obj;
 jg_ret jg_obj_get_obj(
-	jg_t * jg,
-	jg_obj_get_t const * src,
-	char const * key,
+    jg_t * jg,
+    jg_obj_get_t * obj,
+    char const * key,
     jg_obj_obj * opt,
-	jg_obj_get_t * * dst
+    jg_obj_get_t * * v
 );
 
 typedef struct jg_opt_obj_defa jg_obj_obj_defa;
 jg_ret jg_obj_get_obj_defa(
-	jg_t * jg,
-	jg_obj_get_t const * src,
-	char const * key,
+    jg_t * jg,
+    jg_obj_get_t * obj,
+    char const * key,
     jg_obj_obj_defa * opt,
-	jg_obj_get_t * * dst
+    jg_obj_get_t * * v
 );
 
 ////////////////////////////////////////////////////////////////////////////////
 // jg_[root|arr|obj]_get_(a)str() //////////////////////////////////////////////
 
-// These getters come in two forms with regard to the destination buffer "dst":
-// * ..._get_str(): the string is copied into a caller-supplied char "dst".
-// * ..._get_astr(): the string is copied into a malloc()ed char "dst".
+// These getters come in two forms with regard to the destination buffer "v":
+// * ..._get_str(): the string is copied into a caller-supplied char "v".
+// * ..._get_astr(): the string is copied into a malloc()ed char "v".
 
 // To obtain the size needed for a caller-supplied buffer, use the
-// "sprintf(NULL, 0, ...) pattern": call ..._get_(u)str() with a "dst" of NULL
-// and a non-NULL "byte_c" pointer. (Then allocate a "dst" of size
-// "byte_c (+ 1)", and call _get_(u)str() again with that non-NULL "dst".)
+// "sprintf(NULL, 0, ...) pattern": call ..._get_(u)str() with a "v" of NULL
+// and a non-NULL "byte_c" pointer. (Then allocate a "v" of size
+// "byte_c (+ 1)", and call _get_(u)str() again with that non-NULL "v".)
 
 #define JG_OPT_STR_COMMON \
     size_t * byte_c; \
@@ -318,81 +318,81 @@ jg_ret jg_obj_get_obj_defa(
     bool omit_null_terminator
 //  bool unescape; -- todo: unescaping isn't implemented yet ):
 struct jg_opt_str {
-	JG_OPT_STR_COMMON;
+    JG_OPT_STR_COMMON;
 };
 struct jg_opt_obj_str {
     char const * defa;
-	JG_OPT_STR_COMMON;
+    JG_OPT_STR_COMMON;
 };
 #undef JG_OPT_STR_COMMON
 
 typedef struct jg_opt_str jg_root_str;
 jg_ret jg_root_get_str(
-	jg_t * jg,
+    jg_t * jg,
     jg_root_str * opt,
-	char * dst
+    char * v
 );
 
 typedef struct jg_opt_str jg_root_astr;
 jg_ret jg_root_get_astr(
-	jg_t * jg,
+    jg_t * jg,
     jg_root_astr * opt,
-	char * * dst
+    char * * v
 );
 
 typedef struct jg_opt_str jg_arr_str;
 jg_ret jg_arr_get_str(
-	jg_t * jg,
-	jg_arr_get_t const * src,
-	size_t src_i,
+    jg_t * jg,
+    jg_arr_get_t * arr,
+    size_t arr_i,
     jg_arr_str * opt,
-	char * dst
+    char * v
 );
 
 typedef struct jg_opt_str jg_arr_astr;
 jg_ret jg_arr_get_astr(
-	jg_t * jg,
-	jg_arr_get_t const * src,
-	size_t src_i,
+    jg_t * jg,
+    jg_arr_get_t * arr,
+    size_t arr_i,
     jg_arr_astr * opt,
-	char * * dst
+    char * * v
 );
 
 typedef struct jg_opt_obj_str jg_obj_str;
 jg_ret jg_obj_get_str(
-	jg_t * jg,
-	jg_obj_get_t const * src,
-	char const * key,
+    jg_t * jg,
+    jg_obj_get_t * obj,
+    char const * key,
     jg_obj_str * opt,
-	char * dst
+    char * v
 );
 
 typedef struct jg_opt_obj_str jg_obj_astr;
 jg_ret jg_obj_get_astr(
-	jg_t * jg,
-	jg_obj_get_t const * src,
-	char const * key,
+    jg_t * jg,
+    jg_obj_get_t * obj,
+    char const * key,
     jg_obj_astr * opt,
-	char * * dst
+    char * * v
 );
 
 ////////////////////////////////////////////////////////////////////////////////
 // jg_[root|arr|obj]_get_null() ////////////////////////////////////////////////
 
-// Having a "dst" parameter would be pointless in the case of ..._get_null().
+// Having a "v" parameter would be pointless in the case of ..._get_null().
 jg_ret jg_root_get_null(
     jg_t * jg
 );
 
 jg_ret jg_arr_get_null(
     jg_t * jg,
-    jg_arr_get_t const * src,
-    size_t src_i
+    jg_arr_get_t * arr,
+    size_t arr_i
 );
 
 jg_ret jg_obj_get_null(
     jg_t * jg,
-    jg_obj_get_t const * src,
+    jg_obj_get_t * obj,
     char const * key
 );
 
@@ -401,23 +401,23 @@ jg_ret jg_obj_get_null(
 
 jg_ret jg_root_get_bool(
     jg_t * jg,
-    bool * dst
+    bool * v
 );
 
 jg_ret jg_arr_get_bool(
     jg_t * jg,
-    jg_arr_get_t const * src,
-    size_t src_i,
-    bool * dst
+    jg_arr_get_t * arr,
+    size_t arr_i,
+    bool * v
 );
 
 // Take defaults directly as parameter, since bool has no other options to take.
 jg_ret jg_obj_get_bool(
     jg_t * jg,
-    jg_obj_get_t const * src,
+    jg_obj_get_t * obj,
     char const * key,
     bool const * defa,
-    bool * dst
+    bool * v
 );
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -430,40 +430,40 @@ jg_ret jg_obj_get_bool(
 jg_ret jg_root_get##_suf( \
     jg_t * jg, \
     jg_root##_suf * opt, \
-    _type * dst \
+    _type * v \
 )
 
 #define JG_ARR_GET_INT(_suf, _type) \
 jg_ret jg_arr_get##_suf( \
     jg_t * jg, \
-    jg_arr_get_t const * src, \
-    size_t src_i, \
+    jg_arr_get_t * arr, \
+    size_t arr_i, \
     jg_arr##_suf * opt, \
-    _type * dst \
+    _type * v \
 )
 
 #define JG_OBJ_GET_INT(_suf, _type) \
 jg_ret jg_obj_get##_suf( \
     jg_t * jg, \
-    jg_obj_get_t const * src, \
+    jg_obj_get_t * obj, \
     char const * key, \
     jg_obj##_suf * opt, \
-    _type * dst \
+    _type * v \
 )
 
 #define JG_GET_INT(_suf, _type) \
 struct jg_opt##_suf { \
     char const * min_reason; \
     char const * max_reason; \
-	_type min; \
-	_type max; \
+    _type min; \
+    _type max; \
 }; \
 struct jg_opt_obj##_suf { \
-	_type const * defa; \
+    _type const * defa; \
     char const * min_reason; \
     char const * max_reason; \
-	_type min; \
-	_type max; \
+    _type min; \
+    _type max; \
 }; \
 \
 typedef struct jg_opt##_suf jg_root##_suf; \
@@ -510,24 +510,24 @@ JG_GET_INT(_uintmax, uintmax_t);
 #define JG_ROOT_GET_FLO(_suf, _type) \
 jg_ret jg_root_get##_suf( \
     jg_t * jg, \
-    _type * dst \
+    _type * v \
 )
 
 #define JG_ARR_GET_FLO(_suf, _type) \
 jg_ret jg_arr_get##_suf( \
     jg_t * jg, \
-    jg_arr_get_t const * src, \
-    size_t src_i, \
-    _type * dst \
+    jg_arr_get_t * arr, \
+    size_t arr_i, \
+    _type * v \
 )
 
 #define JG_OBJ_GET_FLO(_suf, _type) \
 jg_ret jg_obj_get##_suf( \
     jg_t * jg, \
-    jg_obj_get_t const * src, \
+    jg_obj_get_t * obj, \
     char const * key, \
     _type const * defa, \
-    _type * dst \
+    _type * v \
 )
 
 #define JG_GET_FLO(_suf, _type) \
@@ -543,18 +543,18 @@ JG_GET_FLO(_long_double, long double);
 //## jg_[root|arr|obj]_set_...() prototypes ####################################
 
 jg_ret jg_root_set_null(
-	jg_t * jg
+    jg_t * jg
 );
 
 jg_ret jg_arr_set_null(
-	jg_t * jg,
-	jg_arr_set_t * arr
+    jg_t * jg,
+    jg_arr_set_t * arr
 );
 
 jg_ret jg_obj_set_null(
-	jg_t * jg,
-	jg_obj_set_t * obj,
-	char const * key
+    jg_t * jg,
+    jg_obj_set_t * obj,
+    char const * key
 );
 
 #define JG_ROOT_SET(_suf, _type) \

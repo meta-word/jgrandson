@@ -26,13 +26,13 @@ static jg_ret check_root_not_set(
 
 static jg_ret append_arr_node(
     jg_t * jg,
-	struct jg_val_out * parent,
-	struct jg_val_out * * child
+    struct jg_val_out * parent,
+    struct jg_val_out * * child
 ) {
     if (parent->type != JG_TYPE_ARR) {
         return jg->ret = JG_E_SET_NOT_ARR;
     }
-	struct jg_arr_node * node = parent->arr;
+    struct jg_arr_node * node = parent->arr;
     if (node) {
         while (node->next) {
             node = node->next;
@@ -50,14 +50,14 @@ static jg_ret append_arr_node(
 
 static jg_ret append_obj_node(
     jg_t * jg,
-	struct jg_val_out * parent,
-	char const * key,
-	struct jg_val_out * * child
+    struct jg_val_out * parent,
+    char const * key,
+    struct jg_val_out * * child
 ) {
     if (parent->type != JG_TYPE_OBJ) {
         return jg->ret = JG_E_SET_NOT_OBJ;
     }
-	struct jg_obj_node * node = parent->obj;
+    struct jg_obj_node * node = parent->obj;
     if (node) {
         while (node->next) {
             if (!strcmp(node->key, key)) {
@@ -78,7 +78,7 @@ static jg_ret append_obj_node(
 }
 
 jg_ret jg_root_set_null(
-	jg_t * jg
+    jg_t * jg
 ) {
     JG_GUARD(check_state_set(jg));
     JG_GUARD(check_root_not_set(jg));
@@ -87,8 +87,8 @@ jg_ret jg_root_set_null(
 }
 
 jg_ret jg_arr_set_null(
-	jg_t * jg,
-	jg_arr_set_t * arr
+    jg_t * jg,
+    jg_arr_set_t * arr
 ) {
     JG_GUARD(check_state_set(jg));
     struct jg_val_out * child = NULL;
@@ -98,9 +98,9 @@ jg_ret jg_arr_set_null(
 }
 
 jg_ret jg_obj_set_null(
-	jg_t * jg,
-	jg_obj_set_t * obj,
-	char const * key
+    jg_t * jg,
+    jg_obj_set_t * obj,
+    char const * key
 ) {
     JG_GUARD(check_state_set(jg));
     struct jg_val_out * child = NULL;

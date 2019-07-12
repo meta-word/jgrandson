@@ -16,19 +16,19 @@ static jg_ret check_state_get(
 
 static jg_ret check_type(
     jg_t * jg,
-    struct jg_val_in const * v,
+    struct jg_val_in const * child,
     enum jg_type type
 ) {
-    if (v->type != type) {
-        switch (v->type) {
+    if (child->type != type) {
+        switch (child->type) {
         case JG_TYPE_ARR:
-            jg->json_cur = v->arr->json;
+            jg->json_cur = child->arr->json;
             break;
         case JG_TYPE_OBJ:
-            jg->json_cur = v->obj->json;
+            jg->json_cur = child->obj->json;
             break;
         default:
-            jg->json_cur = v->json;
+            jg->json_cur = child->json;
         }
         switch (type) {
         case JG_TYPE_NULL: return jg->ret = JG_E_GET_NOT_NULL;
@@ -63,7 +63,6 @@ static jg_ret obj_get_val_by_key(
     bool is_required,
     struct jg_val_in const * * val
 ) {
-    // Assumes JG_GUARD(check_src_type(jg, src, JG_TYPE_OBJ)) was already done.
     size_t byte_c = strlen(key);
     for (struct jg_pair const * p = obj->pairs; p < obj->pairs + obj->pair_c;
         p++) {
@@ -89,35 +88,35 @@ static jg_ret obj_get_val_by_key(
 
 jg_ret jg_root_get_json_type(
     jg_t * jg,
-    enum jg_type * dst
+    enum jg_type * type
 ) {
     JG_GUARD(check_state_get(jg));
-    *dst = jg->root_in.type;
+    *type = jg->root_in.type;
     return jg->ret = JG_OK;
 }
 
 jg_ret jg_arr_get_json_type(
     jg_t * jg,
-    jg_arr_get_t const * src,
-    size_t src_i,
-    enum jg_type * dst
+    struct jg_arr const * arr,
+    size_t arr_i,
+    enum jg_type * type
 ) {
     JG_GUARD(check_state_get(jg));
-    JG_GUARD(check_arr_index_over(jg, src, src_i));
-    *dst = src->elems[src_i].type;
+    JG_GUARD(check_arr_index_over(jg, arr, arr_i));
+    *type = arr->elems[arr_i].type;
     return jg->ret = JG_OK;
 }
 
 jg_ret jg_obj_get_json_type(
     jg_t * jg,
-    jg_obj_get_t const * src,
+    struct jg_obj const * obj,
     char const * key,
-    enum jg_type * dst
+    enum jg_type * type
 ) {
     JG_GUARD(check_state_get(jg));
-    struct jg_val_in const * v = NULL;
-    JG_GUARD(obj_get_val_by_key(jg, src, key, true, &v));
-    *dst = v->type;
+    struct jg_val_in const * child = NULL;
+    JG_GUARD(obj_get_val_by_key(jg, obj, key, true, &child));
+    *type = child->type;
     return jg->ret = JG_OK;
 }
 
@@ -149,8 +148,8 @@ static jg_ret handle_arr_options(
 
 jg_ret jg_root_get_arr(
     jg_t * jg,
-	jg_root_arr * opt,
-    jg_arr_get_t * * dst,
+    jg_root_arr * opt,
+    struct jg_arr const * * v,
     size_t * elem_c
 ) {
     JG_GUARD(check_state_get(jg));
@@ -159,78 +158,75 @@ jg_ret jg_root_get_arr(
         JG_GUARD(handle_arr_options(jg, jg->root_in.arr, opt->min_c_reason,
             opt->max_c_reason, opt->min_c, opt->max_c));
     }
-    *dst = jg->root_in.arr;
+    *v = jg->root_in.arr;
     *elem_c = jg->root_in.arr->elem_c;
     return jg->ret = JG_OK;
 }
 
-typedef struct jg_opt_arr jg_arr_arr;
 jg_ret jg_arr_get_arr(
-	jg_t * jg,
-	jg_arr_get_t const * src,
-	size_t src_i,
+    jg_t * jg,
+    struct jg_arr const * arr,
+    size_t arr_i,
     jg_arr_arr * opt,
-	jg_arr_get_t * * dst,
-	size_t * elem_c
+    struct jg_arr const * * v,
+    size_t * elem_c
 ) {
     JG_GUARD(check_state_get(jg));
-    JG_GUARD(check_arr_index_over(jg, src, src_i));
-    struct jg_val_in const * v = src->elems + src_i;
-    JG_GUARD(check_type(jg, v, JG_TYPE_ARR));
+    JG_GUARD(check_arr_index_over(jg, arr, arr_i));
+    struct jg_val_in const * child = arr->elems + arr_i;
+    JG_GUARD(check_type(jg, child, JG_TYPE_ARR));
     if (opt) {
-        JG_GUARD(handle_arr_options(jg, v->arr, opt->min_c_reason,
+        JG_GUARD(handle_arr_options(jg, child->arr, opt->min_c_reason,
             opt->max_c_reason, opt->min_c, opt->max_c));
     }
-    *dst = v->arr;
-    *elem_c = v->arr->elem_c;
+    *v = child->arr;
+    *elem_c = child->arr->elem_c;
     return jg->ret = JG_OK;
 }
 
-typedef struct jg_opt_arr jg_obj_arr;
 jg_ret jg_obj_get_arr(
-	jg_t * jg,
-	jg_obj_get_t const * src,
-	char const * key,
+    jg_t * jg,
+    struct jg_obj const * obj,
+    char const * key,
     jg_obj_arr * opt,
-	jg_arr_get_t * * dst,
-	size_t * elem_c
+    struct jg_arr const * * v,
+    size_t * elem_c
 ) {
     JG_GUARD(check_state_get(jg));
-    struct jg_val_in const * v = NULL;
-    JG_GUARD(obj_get_val_by_key(jg, src, key, true, &v));
-    JG_GUARD(check_type(jg, v, JG_TYPE_ARR));
+    struct jg_val_in const * child = NULL;
+    JG_GUARD(obj_get_val_by_key(jg, obj, key, true, &child));
+    JG_GUARD(check_type(jg, child, JG_TYPE_ARR));
     if (opt) {
-        JG_GUARD(handle_arr_options(jg, v->arr, opt->min_c_reason,
+        JG_GUARD(handle_arr_options(jg, child->arr, opt->min_c_reason,
             opt->max_c_reason, opt->min_c, opt->max_c));
     }
-    *dst = v->arr;
-    *elem_c = v->arr->elem_c;
+    *v = child->arr;
+    *elem_c = child->arr->elem_c;
     return jg->ret = JG_OK;
 }
 
-typedef struct jg_opt_arr_defa jg_obj_arr_defa;
 jg_ret jg_obj_get_arr_defa(
-	jg_t * jg,
-	jg_obj_get_t const * src,
-	char const * key,
+    jg_t * jg,
+    struct jg_obj const * obj,
+    char const * key,
     jg_obj_arr_defa * opt,
-	jg_arr_get_t * * dst,
-	size_t * elem_c
+    struct jg_arr const * * v,
+    size_t * elem_c
 ) {
     JG_GUARD(check_state_get(jg));
-    struct jg_val_in const * v = NULL;
-    JG_GUARD(obj_get_val_by_key(jg, src, key, false, &v));
-    if (v) {
-        JG_GUARD(check_type(jg, v, JG_TYPE_ARR));
+    struct jg_val_in const * child = NULL;
+    JG_GUARD(obj_get_val_by_key(jg, obj, key, false, &child));
+    if (child) {
+        JG_GUARD(check_type(jg, child, JG_TYPE_ARR));
         if (opt) {
-            JG_GUARD(handle_arr_options(jg, v->arr, NULL, opt->max_c_reason, 0,
-                opt->max_c));
+            JG_GUARD(handle_arr_options(jg, child->arr, NULL, opt->max_c_reason,
+                0, opt->max_c));
         }
-        *dst = v->arr;
-        *elem_c = v->arr->elem_c;
+        *v = child->arr;
+        *elem_c = child->arr->elem_c;
     } else {
         static struct jg_arr empty_arr = {0};
-        *dst = &empty_arr;
+        *v = &empty_arr;
         *elem_c = 0;
     }
     return jg->ret = JG_OK;
@@ -242,8 +238,8 @@ jg_ret jg_obj_get_arr_defa(
 static jg_ret handle_obj_options(
     jg_t * jg,
     struct jg_obj const * obj,
-	char * * * keys,
-	size_t * key_c,
+    char * * * keys,
+    size_t * key_c,
     char const * min_c_reason,
     char const * max_c_reason,
     size_t min_c,
@@ -290,9 +286,9 @@ static jg_ret handle_obj_options(
 }
 
 jg_ret jg_root_get_obj(
-	jg_t * jg,
+    jg_t * jg,
     jg_root_obj * opt,
-	jg_obj_get_t * * dst
+    struct jg_obj const * * v
 ) {
     JG_GUARD(check_state_get(jg));
     JG_GUARD(check_type(jg, &jg->root_in, JG_TYPE_OBJ));
@@ -300,72 +296,72 @@ jg_ret jg_root_get_obj(
         JG_GUARD(handle_obj_options(jg, jg->root_in.obj, opt->keys, opt->key_c,
             opt->min_c_reason, opt->max_c_reason, opt->min_c, opt->max_c));
     }
-    *dst = jg->root_in.obj;
+    *v = jg->root_in.obj;
     return jg->ret = JG_OK;
 }
 
 jg_ret jg_arr_get_obj(
-	jg_t * jg,
-	jg_arr_get_t const * src,
-	size_t src_i,
+    jg_t * jg,
+    struct jg_arr const * arr,
+    size_t arr_i,
     jg_arr_obj * opt,
-	jg_obj_get_t * * dst
+    struct jg_obj const * * v
 ) {
     JG_GUARD(check_state_get(jg));
-    JG_GUARD(check_arr_index_over(jg, src, src_i));
-    struct jg_val_in const * v = src->elems + src_i;
-    JG_GUARD(check_type(jg, v, JG_TYPE_OBJ));
+    JG_GUARD(check_arr_index_over(jg, arr, arr_i));
+    struct jg_val_in const * child = arr->elems + arr_i;
+    JG_GUARD(check_type(jg, child, JG_TYPE_OBJ));
     if (opt) {
-        JG_GUARD(handle_obj_options(jg, v->obj, opt->keys, opt->key_c,
+        JG_GUARD(handle_obj_options(jg, child->obj, opt->keys, opt->key_c,
             opt->min_c_reason, opt->max_c_reason, opt->min_c, opt->max_c));
     }
-    *dst = v->obj;
+    *v = child->obj;
     return jg->ret = JG_OK;
 }
 
 jg_ret jg_obj_get_obj(
-	jg_t * jg,
-	jg_obj_get_t const * src,
-	char const * key,
+    jg_t * jg,
+    struct jg_obj const * obj,
+    char const * key,
     jg_obj_obj * opt,
-	jg_obj_get_t * * dst
+    struct jg_obj const * * v
 ) {
     JG_GUARD(check_state_get(jg));
-    struct jg_val_in const * v = NULL;
-    JG_GUARD(obj_get_val_by_key(jg, src, key, true, &v));
-    JG_GUARD(check_type(jg, v, JG_TYPE_OBJ));
+    struct jg_val_in const * child = NULL;
+    JG_GUARD(obj_get_val_by_key(jg, obj, key, true, &child));
+    JG_GUARD(check_type(jg, child, JG_TYPE_OBJ));
     if (opt) {
-        JG_GUARD(handle_obj_options(jg, v->obj, opt->keys, opt->key_c,
+        JG_GUARD(handle_obj_options(jg, child->obj, opt->keys, opt->key_c,
             opt->min_c_reason, opt->max_c_reason, opt->min_c, opt->max_c));
     }
-    *dst = v->obj;
+    *v = child->obj;
     return jg->ret = JG_OK;
 }
 
 jg_ret jg_obj_get_obj_defa(
-	jg_t * jg,
-	jg_obj_get_t const * src,
-	char const * key,
+    jg_t * jg,
+    struct jg_obj const * obj,
+    char const * key,
     jg_obj_obj_defa * opt,
-	jg_obj_get_t * * dst
+    struct jg_obj const * * v
 ) {
     JG_GUARD(check_state_get(jg));
-    struct jg_val_in const * v = NULL;
-    JG_GUARD(obj_get_val_by_key(jg, src, key, false, &v));
-    if (v) {
-        JG_GUARD(check_type(jg, v, JG_TYPE_OBJ));
+    struct jg_val_in const * child = NULL;
+    JG_GUARD(obj_get_val_by_key(jg, obj, key, false, &child));
+    if (child) {
+        JG_GUARD(check_type(jg, child, JG_TYPE_OBJ));
         if (opt) {
-            JG_GUARD(handle_obj_options(jg, v->obj, opt->keys, opt->key_c, NULL,
-                opt->max_c_reason, 0, opt->max_c));
+            JG_GUARD(handle_obj_options(jg, child->obj, opt->keys, opt->key_c,
+                NULL, opt->max_c_reason, 0, opt->max_c));
         }
-        *dst = v->obj;
+        *v = child->obj;
     } else {
         static struct jg_obj const empty_obj = {0};
         if (opt) {
             JG_GUARD(handle_obj_options(jg, &empty_obj, opt->keys, opt->key_c,
                 NULL, NULL, 0, 0));
         }
-        *dst = &empty_obj;
+        *v = &empty_obj;
     }
     return jg->ret = JG_OK;
 }
@@ -387,7 +383,7 @@ static size_t get_str_char_c(
 
 static jg_ret handle_str_size_options(
     jg_t * jg,
-    struct jg_val_in const * v,
+    struct jg_val_in const * child,
     char const * min_byte_c_reason,
     char const * max_byte_c_reason,
     char const * min_char_c_reason,
@@ -396,39 +392,39 @@ static jg_ret handle_str_size_options(
     size_t max_byte_c,
     size_t min_char_c,
     size_t max_char_c,
-    size_t * dst_byte_c,
-    size_t * dst_char_c
+    size_t * v_byte_c,
+    size_t * v_char_c
 ) {
-    if (v->byte_c < min_byte_c) {
+    if (child->byte_c < min_byte_c) {
         jg->err_val.s = min_byte_c;
-        jg->json_cur = v->json;
+        jg->json_cur = child->json;
         set_custom_err_str(jg, min_byte_c_reason);
         return jg->ret = JG_E_GET_STR_BYTE_C_TOO_FEW;
     }
-    if (v->byte_c > max_byte_c) {
+    if (child->byte_c > max_byte_c) {
         jg->err_val.s = max_byte_c;
-        jg->json_cur = v->json;
+        jg->json_cur = child->json;
         set_custom_err_str(jg, max_byte_c_reason);
         return jg->ret = JG_E_GET_STR_BYTE_C_TOO_MANY;
     }
-    if (dst_byte_c) {
-        *dst_byte_c = v->byte_c;
+    if (v_byte_c) {
+        *v_byte_c = child->byte_c;
     }
-    size_t char_c = get_str_char_c(v->json, v->byte_c);
+    size_t char_c = get_str_char_c(child->json, child->byte_c);
     if (char_c < min_char_c) {
         jg->err_val.s = min_char_c;
-        jg->json_cur = v->json;
+        jg->json_cur = child->json;
         set_custom_err_str(jg, min_char_c_reason);
         return jg->ret = JG_E_GET_STR_CHAR_C_TOO_FEW;
     }
     if (char_c > max_char_c) {
         jg->err_val.s = max_char_c;
-        jg->json_cur = v->json;
+        jg->json_cur = child->json;
         set_custom_err_str(jg, max_char_c_reason);
         return jg->ret = JG_E_GET_STR_CHAR_C_TOO_MANY;
     }
-    if (dst_char_c) {
-        *dst_char_c = char_c;
+    if (v_char_c) {
+        *v_char_c = char_c;
     }
     return JG_OK;
 }
@@ -440,24 +436,24 @@ static jg_ret get_str(
     bool nullify_empty_str,
     bool omit_null_terminator,
     bool needs_alloc,
-    char * * dst
+    char * * v
 ) {
      if (!byte_c && nullify_empty_str) {
-        *dst = NULL;
+        *v = NULL;
         return jg->ret = JG_OK;
     }
     if (needs_alloc) {
-        *dst = malloc(byte_c + !omit_null_terminator);
-        if (!*dst) {
+        *v = malloc(byte_c + !omit_null_terminator);
+        if (!*v) {
             return jg->ret = JG_E_MALLOC;
         }
-    } else if (!*dst) {
+    } else if (!*v) {
         // Assume .._get_str() caller only wants to know byte_c (or char_c).
-        return jg->ret = JG_OK; // dst is NULL, so return without copying.
+        return jg->ret = JG_OK; // v is NULL, so return without copying.
     }
-    memcpy(*dst, str, byte_c);
+    memcpy(*v, str, byte_c);
     if (!omit_null_terminator) {
-        (*dst)[byte_c] = '\0';
+        (*v)[byte_c] = '\0';
     }
     return jg->ret = JG_OK;
 }
@@ -466,7 +462,7 @@ static jg_ret root_get_str(
     jg_t * jg,
     jg_root_str * opt,
     bool needs_alloc,
-    char * * dst
+    char * * v
 ) {
     JG_GUARD(check_state_get(jg));
     JG_GUARD(check_type(jg, &jg->root_in, JG_TYPE_STR));
@@ -482,83 +478,83 @@ static jg_ret root_get_str(
         omit_null_terminator = opt->omit_null_terminator;
     }
     return get_str(jg, jg->root_in.json, jg->root_in.byte_c, nullify_empty_str,
-        omit_null_terminator, needs_alloc, dst);
+        omit_null_terminator, needs_alloc, v);
 }
 
 jg_ret jg_root_get_str(
     jg_t * jg,
     jg_root_str * opt,
-    char * dst
+    char * v
 ) {
-    return root_get_str(jg, opt, false, &dst);
+    return root_get_str(jg, opt, false, &v);
 }
 
 jg_ret jg_root_get_astr(
     jg_t * jg,
     jg_root_astr * opt,
-    char * * dst
+    char * * v
 ) {
-    return root_get_str(jg, opt, true, dst);
+    return root_get_str(jg, opt, true, v);
 }
 
 static jg_ret arr_get_str(
     jg_t * jg,
-    jg_arr_get_t const * src,
-    size_t src_i,
+    struct jg_arr const * arr,
+    size_t arr_i,
     jg_arr_str * opt,
     bool needs_alloc,
-    char * * dst
+    char * * v
 ) {
     JG_GUARD(check_state_get(jg));
-    JG_GUARD(check_arr_index_over(jg, src, src_i));
-    struct jg_val_in const * v = src->elems + src_i;
-    JG_GUARD(check_type(jg, v, JG_TYPE_STR));
+    JG_GUARD(check_arr_index_over(jg, arr, arr_i));
+    struct jg_val_in const * child = arr->elems + arr_i;
+    JG_GUARD(check_type(jg, child, JG_TYPE_STR));
     bool nullify_empty_str = false;
     bool omit_null_terminator = false;
     if (opt) {
-        JG_GUARD(handle_str_size_options(jg, v, opt->min_byte_c_reason,
+        JG_GUARD(handle_str_size_options(jg, child, opt->min_byte_c_reason,
             opt->max_byte_c_reason, opt->min_char_c_reason,
             opt->max_char_c_reason, opt->min_byte_c, opt->max_byte_c,
             opt->min_char_c, opt->max_char_c, opt->byte_c, opt->char_c));
         nullify_empty_str = opt->nullify_empty_str;
         omit_null_terminator = opt->omit_null_terminator;
     }
-    return get_str(jg, v->json, v->byte_c, nullify_empty_str,
-        omit_null_terminator, needs_alloc, dst);
+    return get_str(jg, child->json, child->byte_c, nullify_empty_str,
+        omit_null_terminator, needs_alloc, v);
 }
 
 jg_ret jg_arr_get_str(
     jg_t * jg,
-    jg_arr_get_t const * src,
-    size_t src_i,
+    struct jg_arr const * arr,
+    size_t arr_i,
     jg_arr_str * opt,
-    char * dst
+    char * v
 ) {
-    return arr_get_str(jg, src, src_i, opt, false, &dst);
+    return arr_get_str(jg, arr, arr_i, opt, false, &v);
 }
 
 jg_ret jg_arr_get_astr(
     jg_t * jg,
-    jg_arr_get_t const * src,
-    size_t src_i,
+    struct jg_arr const * arr,
+    size_t arr_i,
     jg_arr_astr * opt,
-    char * * dst
+    char * * v
 ) {
-    return arr_get_str(jg, src, src_i, opt, true, dst);
+    return arr_get_str(jg, arr, arr_i, opt, true, v);
 }
 
 static jg_ret obj_get_str(
     jg_t * jg,
-    jg_obj_get_t const * src,
+    struct jg_obj const * obj,
     char const * key,
     jg_obj_str * opt,
     bool needs_alloc,
-    char * * dst
+    char * * v
 ) {
     JG_GUARD(check_state_get(jg));
-    struct jg_val_in const * v = NULL;
-    JG_GUARD(obj_get_val_by_key(jg, src, key, !opt || !opt->defa, &v));
-    if (!v) {
+    struct jg_val_in const * child = NULL;
+    JG_GUARD(obj_get_val_by_key(jg, obj, key, !opt || !opt->defa, &child));
+    if (!child) {
         // Use the provided default instead: opt must be non-NULL because
         // otherwise the is_required arg to obj_get_val_by_key() would be true,
         // meaning said function would not return JG_OK when no key was found.
@@ -570,41 +566,41 @@ static jg_ret obj_get_str(
             *opt->char_c = get_str_char_c(opt->defa, byte_c);
         }
         return get_str(jg, opt->defa, byte_c, opt->nullify_empty_str,
-            opt->omit_null_terminator, needs_alloc, dst);
+            opt->omit_null_terminator, needs_alloc, v);
     }
-    JG_GUARD(check_type(jg, v, JG_TYPE_STR));
+    JG_GUARD(check_type(jg, child, JG_TYPE_STR));
     bool nullify_empty_str = false;
     bool omit_null_terminator = false;
     if (opt) {
-        JG_GUARD(handle_str_size_options(jg, v, opt->min_byte_c_reason,
+        JG_GUARD(handle_str_size_options(jg, child, opt->min_byte_c_reason,
             opt->max_byte_c_reason, opt->min_char_c_reason,
             opt->max_char_c_reason, opt->min_byte_c, opt->max_byte_c,
             opt->min_char_c, opt->max_char_c, opt->byte_c, opt->char_c));
         nullify_empty_str = opt->nullify_empty_str;
         omit_null_terminator = opt->omit_null_terminator;
     }
-    return get_str(jg, v->json, v->byte_c, nullify_empty_str,
-        omit_null_terminator, needs_alloc, dst);
+    return get_str(jg, child->json, child->byte_c, nullify_empty_str,
+        omit_null_terminator, needs_alloc, v);
 }
 
 jg_ret jg_obj_get_str(
     jg_t * jg,
-    jg_obj_get_t const * src,
+    struct jg_obj const * obj,
     char const * key,
     jg_obj_str * opt,
-    char * dst
+    char * v
 ) {
-    return obj_get_str(jg, src, key, opt, false, &dst);
+    return obj_get_str(jg, obj, key, opt, false, &v);
 }
 
 jg_ret jg_obj_get_astr(
     jg_t * jg,
-    jg_obj_get_t const * src,
+    struct jg_obj const * obj,
     char const * key,
     jg_obj_astr * opt,
-    char * * dst
+    char * * v
 ) {
-    return obj_get_str(jg, src, key, opt, true, dst);
+    return obj_get_str(jg, obj, key, opt, true, v);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -620,24 +616,24 @@ jg_ret jg_root_get_null(
 
 jg_ret jg_arr_get_null(
     jg_t * jg,
-    jg_arr_get_t const * src,
-    size_t src_i
+    struct jg_arr const * arr,
+    size_t arr_i
 ) {
     JG_GUARD(check_state_get(jg));
-    JG_GUARD(check_arr_index_over(jg, src, src_i));
-    JG_GUARD(check_type(jg, src->elems + src_i, JG_TYPE_NULL));
+    JG_GUARD(check_arr_index_over(jg, arr, arr_i));
+    JG_GUARD(check_type(jg, arr->elems + arr_i, JG_TYPE_NULL));
     return jg->ret = JG_OK;
 }
 
 jg_ret jg_obj_get_null(
     jg_t * jg,
-    jg_obj_get_t const * src,
+    struct jg_obj const * obj,
     char const * key
 ) {
     JG_GUARD(check_state_get(jg));
-    struct jg_val_in const * v = NULL;
-    JG_GUARD(obj_get_val_by_key(jg, src, key, true, &v));
-    JG_GUARD(check_type(jg, v, JG_TYPE_NULL));
+    struct jg_val_in const * child = NULL;
+    JG_GUARD(obj_get_val_by_key(jg, obj, key, true, &child));
+    JG_GUARD(check_type(jg, child, JG_TYPE_NULL));
     return jg->ret = JG_OK;
 }
 
@@ -646,43 +642,43 @@ jg_ret jg_obj_get_null(
 
 jg_ret jg_root_get_bool(
     jg_t * jg,
-    bool * dst
+    bool * v
 ) {
     JG_GUARD(check_state_get(jg));
     JG_GUARD(check_type(jg, &jg->root_in, JG_TYPE_BOOL));
-    *dst = jg->root_in.bool_is_true;
+    *v = jg->root_in.bool_is_true;
     return jg->ret = JG_OK;
 }
 
 jg_ret jg_arr_get_bool(
     jg_t * jg,
-    jg_arr_get_t const * src,
-    size_t src_i,
-    bool * dst
+    struct jg_arr const * arr,
+    size_t arr_i,
+    bool * v
 ) {
     JG_GUARD(check_state_get(jg));
-    JG_GUARD(check_arr_index_over(jg, src, src_i));
-    struct jg_val_in const * v = src->elems + src_i;
-    JG_GUARD(check_type(jg, v, JG_TYPE_BOOL));
-    *dst = v->bool_is_true;
+    JG_GUARD(check_arr_index_over(jg, arr, arr_i));
+    struct jg_val_in const * child = arr->elems + arr_i;
+    JG_GUARD(check_type(jg, child, JG_TYPE_BOOL));
+    *v = child->bool_is_true;
     return jg->ret = JG_OK;
 }
 
 jg_ret jg_obj_get_bool(
     jg_t * jg,
-    jg_obj_get_t const * src,
+    struct jg_obj const * obj,
     char const * key,
     bool const * defa,
-    bool * dst
+    bool * v
 ) {
     JG_GUARD(check_state_get(jg));
-    struct jg_val_in const * v = NULL;
-    JG_GUARD(obj_get_val_by_key(jg, src, key, !defa, &v));
-    if (v) {
-        JG_GUARD(check_type(jg, v, JG_TYPE_BOOL));
-        *dst = v->bool_is_true;
+    struct jg_val_in const * child = NULL;
+    JG_GUARD(obj_get_val_by_key(jg, obj, key, !defa, &child));
+    if (child) {
+        JG_GUARD(check_type(jg, child, JG_TYPE_BOOL));
+        *v = child->bool_is_true;
     } else {
-        *dst = *defa;
+        *v = *defa;
     }
     return jg->ret = JG_OK;
 }
@@ -775,7 +771,7 @@ do { \
         JG_GUARD((_str_to_int_func)(jg, str, NULL, NULL, (_type_min), \
             (_type_max), &n)); \
     } \
-    *dst = n; \
+    *v = n; \
 } while (0)
 
 // This should be a NOP, but nonetheless undefine _ just in case; because
@@ -809,24 +805,24 @@ JG_ROOT_GET_INT(_suf, _type) { \
 \
 JG_ARR_GET_INT(_suf, _type) { \
     JG_GUARD(check_state_get(jg)); \
-    JG_GUARD(check_arr_index_over(jg, src, src_i)); \
-    struct jg_val_in const * v = src->elems + src_i; \
-    JG_GUARD(check_type(jg, v, JG_TYPE_NUM)); \
-    const char * str = v->json; \
+    JG_GUARD(check_arr_index_over(jg, arr, arr_i)); \
+    struct jg_val_in const * child = arr->elems + arr_i; \
+    JG_GUARD(check_type(jg, child, JG_TYPE_NUM)); \
+    const char * str = child->json; \
     _##_str_to_int; \
     return jg->ret = JG_OK; \
 } \
 \
 JG_OBJ_GET_INT(_suf, _type) { \
     JG_GUARD(check_state_get(jg)); \
-    struct jg_val_in const * v = NULL; \
-    JG_GUARD(obj_get_val_by_key(jg, src, key, !opt || !opt->defa, &v)); \
-    if (!v) { \
-        *dst = *opt->defa; \
+    struct jg_val_in const * child = NULL; \
+    JG_GUARD(obj_get_val_by_key(jg, obj, key, !opt || !opt->defa, &child)); \
+    if (!child) { \
+        *v = *opt->defa; \
         return jg->ret = JG_OK; \
     } \
-    JG_GUARD(check_type(jg, v, JG_TYPE_NUM)); \
-    const char * str = v->json; \
+    JG_GUARD(check_type(jg, child, JG_TYPE_NUM)); \
+    const char * str = child->json; \
     _##_str_to_int; \
     return jg->ret = JG_OK; \
 }
@@ -874,7 +870,7 @@ JG_ROOT_GET_FLO(_suf, _type) { \
     if (jg->json_over[-1] < '0' || jg->json_over[-1] > '9') { \
         char * end = NULL; \
         errno = 0; \
-        *dst = _str_to_flo_func(jg->root_in.json, &end); \
+        *v = _str_to_flo_func(jg->root_in.json, &end); \
         if (errno) { \
             return jg->ret = _e_out_of_range; \
         } \
@@ -892,7 +888,7 @@ JG_ROOT_GET_FLO(_suf, _type) { \
     str[jg->root_in.byte_c] = '\0'; \
     char * end = NULL; \
     errno = 0; \
-    *dst = _str_to_flo_func(str, &end); \
+    *v = _str_to_flo_func(str, &end); \
     free(str); \
     if (errno) { \
         return jg->ret = _e_out_of_range; \
@@ -902,33 +898,35 @@ JG_ROOT_GET_FLO(_suf, _type) { \
 \
 JG_ARR_GET_FLO(_suf, _type) { \
     JG_GUARD(check_state_get(jg)); \
-    JG_GUARD(check_arr_index_over(jg, src, src_i)); \
-    struct jg_val_in const * v = src->elems + src_i; \
-    JG_GUARD(check_type(jg, v, JG_TYPE_NUM)); \
+    JG_GUARD(check_arr_index_over(jg, arr, arr_i)); \
+    struct jg_val_in const * child = arr->elems + arr_i; \
+    JG_GUARD(check_type(jg, child, JG_TYPE_NUM)); \
     char * end = NULL; \
     errno = 0; \
-    *dst = _str_to_flo_func(v->json, &end); \
+    *v = _str_to_flo_func(child->json, &end); \
     if (errno) { \
         return jg->ret = _e_out_of_range; \
     } \
-    return jg->ret = end < v->json + v->byte_c ? JG_E_GET_NUM_NOT_FLO : JG_OK; \
+    return jg->ret = end < child->json + child->byte_c ? \
+        JG_E_GET_NUM_NOT_FLO : JG_OK; \
 } \
 \
 JG_OBJ_GET_FLO(_suf, _type) { \
     JG_GUARD(check_state_get(jg)); \
-    struct jg_val_in const * v = NULL; \
-    JG_GUARD(obj_get_val_by_key(jg, src, key, !defa, &v)); \
-    if (!v) { \
-        *dst = *defa; \
+    struct jg_val_in const * child = NULL; \
+    JG_GUARD(obj_get_val_by_key(jg, obj, key, !defa, &child)); \
+    if (!child) { \
+        *v = *defa; \
         return jg->ret = JG_OK; \
     } \
     char * end = NULL; \
     errno = 0; \
-    *dst = _str_to_flo_func(v->json, &end); \
+    *v = _str_to_flo_func(child->json, &end); \
     if (errno) { \
         return jg->ret = _e_out_of_range; \
     } \
-    return jg->ret = end < v->json + v->byte_c ? JG_E_GET_NUM_NOT_FLO : JG_OK; \
+    return jg->ret = end < child->json + child->byte_c ? \
+        JG_E_GET_NUM_NOT_FLO : JG_OK; \
 }
 
 JG_GET_FUNC_FLO(_float, float, strtof, JG_E_GET_NUM_FLOAT_OUT_OF_RANGE)

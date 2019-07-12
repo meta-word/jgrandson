@@ -140,7 +140,7 @@ jg_ret set_custom_err_str(
 
 jg_ret astrcpy(
     jg_t * jg,
-	char * * dst,
+    char * * dst,
     char const * src
 );
 

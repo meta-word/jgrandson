@@ -244,7 +244,7 @@ void jg_reinit(
 
 jg_ret astrcpy(
     jg_t * jg,
-	char * * dst,
+    char * * dst,
     char const * src
 ) {
     size_t byte_c = strlen(src);
