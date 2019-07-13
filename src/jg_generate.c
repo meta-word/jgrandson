@@ -87,7 +87,6 @@ static void generate_json(
         return;
     case JG_TYPE_STR:
         JG_PUT('"');
-        // todo: Escape! D:
         JG_PUT_STR(v->str);
         JG_PUT('"');
         return;
