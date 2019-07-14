@@ -165,16 +165,6 @@ jg_ret print_alloc_str(
     return JG_OK;
 }
 
-static size_t get_utf8_char_size(
-    char const * c,
-    char const * const c_over
-) {
-    if (c >= c_over) return 0;
-    if (++c == c_over || !is_utf8_continuation_byte(*c)) return 1;
-    if (++c == c_over || !is_utf8_continuation_byte(*c)) return 2;
-    return ++c == c_over || !is_utf8_continuation_byte(*c) ? 3 : 4;
-}
-
 static char const * get_errno_str(
     jg_t * jg
 ) {
