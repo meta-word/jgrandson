@@ -5,8 +5,8 @@
 
 #define JG_PUT(_c) \
 do { \
-    if (json) { \
-        json[*json_i] = (_c); \
+    if (json_text) { \
+        json_text[*json_i] = (_c); \
     } \
     (*json_i)++; \
 } while (0)
@@ -14,8 +14,8 @@ do { \
 #define JG_PUT_STR(_str) \
 do { \
     size_t byte_c = strlen(_str); \
-    if (json) { \
-        memcpy(json + *json_i, (_str), byte_c); \
+    if (json_text) { \
+        memcpy(json_text + *json_i, (_str), byte_c); \
     } \
     *json_i += byte_c; \
 } while (0)
@@ -64,9 +64,9 @@ do { \
     JG_PUT_INDENT; \
 } while(0)
 
-static void generate_json(
+static void generate_json_text(
     struct jg_val_out const * v,
-    char * const json,
+    char * const json_text,
     size_t * json_i,
     size_t * indent,
     jg_opt_whitespace * opt
@@ -94,11 +94,11 @@ static void generate_json(
         JG_PUT('[');
         if (v->arr) {
             struct jg_arr_node * node = v->arr;
-            generate_json(&node->elem, json, json_i, indent, opt);
+            generate_json_text(&node->elem, json_text, json_i, indent, opt);
             while ((node = node->next)) {
                 JG_PUT(',');
                 JG_PUT_SPACE;
-                generate_json(&node->elem, json, json_i, indent, opt);
+                generate_json_text(&node->elem, json_text, json_i, indent, opt);
             }
         }
         JG_PUT(']');
@@ -114,7 +114,7 @@ static void generate_json(
             JG_PUT('"');
             JG_PUT(':');
             JG_PUT_SPACE;
-            generate_json(&node->val, json, json_i, indent, opt);
+            generate_json_text(&node->val, json_text, json_i, indent, opt);
             while ((node = node->next)) {
                 JG_PUT(',');
                 JG_PUT_NEWLINE;
@@ -124,7 +124,7 @@ static void generate_json(
                 JG_PUT('"');
                 JG_PUT(':');
                 JG_PUT_SPACE;
-                generate_json(&node->val, json, json_i, indent, opt);
+                generate_json_text(&node->val, json_text, json_i, indent, opt);
             }
             JG_PUT_NEWLINE;
             JG_PUT_INDENT_DECR;
@@ -136,9 +136,14 @@ static void generate_json(
 jg_ret jg_generate_str(
     jg_t * jg,
     jg_opt_whitespace * opt,
-    char * * json
+    char * * json_text,
+    size_t * byte_c
 ) {
-    size_t byte_c = 0;
+    if (jg->state != JG_STATE_SET || jg->state != JG_STATE_GENERATE) {
+        return jg->ret = JG_E_STATE_NOT_GENERATE;
+    }
+    jg->state = JG_STATE_GENERATE;
+    *byte_c = 0;
     struct jg_opt_whitespace defa = {
         .indent = (size_t []){2},
         .indent_is_tab = false,
@@ -151,12 +156,69 @@ jg_ret jg_generate_str(
     } else if (!opt->indent) {
         opt->indent = defa.indent;
     }
-    generate_json(&jg->root_out, NULL, &byte_c, (size_t []){0}, opt);
-    *json = malloc(byte_c + 1);
-    if (*json) {
+    generate_json_text(&jg->root_out, NULL, byte_c, (size_t []){0}, opt);
+    *json_text = malloc(*byte_c + 1);
+    if (*json_text) {
         return jg->ret = JG_E_MALLOC;
     }
-    (*json)[byte_c] = '\0';
-    generate_json(&jg->root_out, *json, (size_t []){0}, (size_t []){0}, opt);
+    (*json_text)[*byte_c] = '\0';
+    generate_json_text(&jg->root_out, *json_text, (size_t []){0},
+        (size_t []){0}, opt);
+    return JG_OK;
+}
+
+jg_ret jg_generate_callerstr(
+    jg_t * jg,
+    jg_opt_whitespace * opt,
+    char * json_text,
+    size_t * byte_c
+) {
+    if (jg->state != JG_STATE_SET || jg->state != JG_STATE_GENERATE) {
+        return jg->ret = JG_E_STATE_NOT_GENERATE;
+    }
+    jg->state = JG_STATE_GENERATE;
+    *byte_c = 0;
+    struct jg_opt_whitespace defa = {
+        .indent = (size_t []){2},
+        .indent_is_tab = false,
+        .include_cr = false,
+        .no_whitespace = false,
+        .no_newline_before_eof = false
+    };
+    if (!opt) {
+        opt = &defa;
+    } else if (!opt->indent) {
+        opt->indent = defa.indent;
+    }
+    generate_json_text(&jg->root_out, json_text, byte_c, (size_t []){0}, opt);
+    return JG_OK;
+}
+
+jg_ret jg_generate_file(
+    jg_t * jg,
+    jg_opt_whitespace * opt,
+    char const * filepath
+) {
+    if (jg->state != JG_STATE_SET || jg->state != JG_STATE_GENERATE) {
+        return jg->ret = JG_E_STATE_NOT_GENERATE;
+    }
+    jg->state = JG_STATE_GENERATE;
+    char * json_text = NULL;
+    size_t byte_c = 0;
+    JG_GUARD(jg_generate_str(jg, opt, &json_text, &byte_c));
+    FILE * f = fopen(filepath, "w");
+    if (!f) {
+        jg->err_val.errn = errno;
+        return jg->ret = JG_E_ERRNO_FOPEN;
+    }
+    if (fwrite(json_text, 1, byte_c, f) != byte_c) {
+        free(json_text);
+        return jg->ret = JG_E_FWRITE;
+    }
+    free(json_text);
+    if (fclose(f)) {
+        jg->err_val.errn = errno;
+        return jg->ret = JG_E_ERRNO_FCLOSE;
+    }
     return JG_OK;
 }
