@@ -22,17 +22,21 @@ Between `jg_init()` and `jg_free()` Jgrandson supports two mutually exclusive us
 1) A single call to a `jg_parse_...()` function, followed by one or more getter calls of the form `jg_[root|arr|obj]_get_...()`.
 2) One or more setter calls of the form `jg_[root|arr|obj]_set_...()`, followed by a single call to a `jg_generate_...()` function.
 
-No state can be shared between these two usage patterns. While `jg_reinit()` can be used to switch from one to the other, doing is functionally equivalent to calling `jg_free()` followed by `jg_init()`.
+No state can be shared between these two usage patterns. While `jg_reinit()` can be used to switch from one to the other, doing so is functionally equivalent to calling `jg_free()` followed by `jg_init()`.
 
 Every Jgrandson function returns the type `jg_ret`, which is an `enum` that can equal `JG_OK` (zero) or an `JG_E_...` error value (greater than zero). To obtain an error string associated with the last returned `jg_ret` error value, call `jg_get_err_str()`. The returned string should be treated read-only/`const`, and may be `free()`d by Jgrandson during a subsequent call to `jg_get_err_str()` or `jg_free()`.
+
+For the exact definition of the Jgrandson API and all its public prototypes refer to the `jgrandson.h` [header file](https://github.com/wbudd/jgrandson/blob/master/src/jgrandson.h).
 
 ### Parsing
 
 A JSON text can be parsed with either of the following functions:
 
-`jg_parse_file()`
-`jg_parse_str()`
-`jg_parse_callerstr()`
+`jg_parse_file()`: Takes a file path string, reads the corresponding file as a JSON text, and attempts to parse it.
+
+`jg_parse_str()`: Takes a string, copies its contents to a private `malloc`ed string buffer, and attempts to parse it.
+
+`jg_parse_callerstr()`: Same as above, except that it parses the string as-is without making a copy. Note that the caller must guarantee that the string's storage duration lasts at least as long as the Jgrandson session (i.e., until `jg_free()` is called), and that the string is not altered during that time.
 
 If the parse function returns `JG_OK`, the JSON text in question has been fully parsed and validated in accordance with [RFC 8259](https://tools.ietf.org/html/rfc8259).
 
@@ -45,5 +49,7 @@ If the parse function returns `JG_OK`, the JSON text in question has been fully 
 Once you've completed setting JSON values, a JSON text can be generated with either of the following functions:
 
 `jg_parse_file()`
+
 `jg_parse_str()`
+
 `jg_parse_callerstr()`
