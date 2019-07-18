@@ -79,60 +79,18 @@ static jg_ret append_obj_node(
 
 static jg_ret escape_and_set_str(
     jg_t * jg,
-    uint8_t const * str,
-    size_t byte_c,
+    uint8_t const * unesc_str,
+    size_t unesc_byte_c,
     struct jg_val_out * child
 ) {
-    size_t escaped_byte_c = byte_c;
-    for (uint8_t const * u = str; u < str + byte_c; u++) {
-        switch (*u) {
-        case '\b': case '\t': case '\n': case '\f': case '\r': case '"':
-        case '\\':
-            // Replaced by a 2 char sequence; e.g., line feed -> backslash and n
-            escaped_byte_c++;
-            continue;
-        default:
-            if (*u < 0x20) { // Any control characters must be escaped (rfc8259)
-                // Replaced by a 6 char sequence; e.g., bell ('\a') -> "\u0007"
-                escaped_byte_c += 5;
-            }
-        }
-    }
-    uint8_t * dst = malloc(escaped_byte_c + 1);
-    if (!dst) {
+    size_t byte_c = get_json_byte_c(unesc_str, unesc_byte_c);
+    uint8_t * json_str = malloc(byte_c + 1);
+    if (!json_str) {
         return jg->ret = JG_E_MALLOC;
     }
-    dst[escaped_byte_c] = '\0';
-    child->str = (char *) dst;
-    for (uint8_t const * src = str; src < str + byte_c; src++) {
-        switch (*src) {
-        case '\b': *dst++ = '\\'; *dst++ = 'b' ; continue;
-        case '\t': *dst++ = '\\'; *dst++ = 't' ; continue;
-        case '\n': *dst++ = '\\'; *dst++ = 'n' ; continue;
-        case '\f': *dst++ = '\\'; *dst++ = 'f' ; continue;
-        case '\r': *dst++ = '\\'; *dst++ = 'r' ; continue;
-        case '"' : *dst++ = '\\'; *dst++ = '"' ; continue;
-        case '\\': *dst++ = '\\'; *dst++ = '\\'; continue;
-        default:
-            if (*src >= 0x20) {
-                *dst++ = *src;
-                continue;
-            }
-        }
-        // *u is a control character other than any of the cases above, so it
-        // must be "represented as a six-character sequence: a reverse solidus,
-        // followed by the lowercase letter u, followed by four hexadecimal
-        // digits that encode the character's code point." (rfc8259)
-        *dst++ = '\\';
-        *dst++ = 'u';
-        *dst++ = '0';
-        *dst++ = '0';
-        // Write higher hex digit repr as char; e.g., 0x0E -> '0', 0x19 -> '1'
-        *dst++ = '0' + (*src >> 4); // Equals *dst++ = *src >= 0x10 ? '1' : '0'
-        // Write lower hex digit repr as char; e.g., 0x15 -> '5', 0x0C -> 'C'
-        uint8_t lower_half = *src & 0x0F;
-        *dst++ = (lower_half > 0x09 ? '7' : '0') + lower_half;
-    }
+    json_str[byte_c] = '\0';
+    unesc_str_to_json_str(unesc_str, unesc_byte_c, json_str);
+    child->str = (char *) json_str;
     return JG_OK;
 }
 

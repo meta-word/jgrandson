@@ -75,11 +75,11 @@ static char const * err_strs[] = {
         "'\\', '/', ' ', '\"', 'b', 'f', 'n', 'r', 't', or 'u'",
 /*37*/ "String contains an invalid hexadecimal UTF-16 code point sequence "
        "following a \"\\u\" escape sequence",
-/*38*/ "String contains an escaped UTF-16 high surrogate (\\uDC00 through "
-       "\\uDFFF) not preceded by a UTF-16 low surrogate (\\uD800 through "
+/*38*/ "String contains an escaped UTF-16 low surrogate (\\uDC00 through "
+       "\\uDFFF) not preceded by a UTF-16 high surrogate (\\uD800 through "
        "\\uDBFF)",
-/*39*/ "String contains an escaped UTF-16 low surrogate (\\uD800 through "
-       "\\uDBFF) not followed by a UTF-16 high surrogate (\\uDC00 through "
+/*39*/ "String contains an escaped UTF-16 high surrogate (\\uD800 through "
+       "\\uDBFF) not followed by a UTF-16 low surrogate (\\uDC00 through "
        "\\uDFFF).",
 /*40*/ "Jgrandson does not support parsing string sizes greater than 4GB",
 /*41*/ "Array elements must be followed by a comma (',') or a closing bracket "
@@ -219,7 +219,8 @@ static char const * get_contextual_err_str(
         JG_MAX(err_line, jg->json_cur - JG_CONTEXT_BEFORE_MAX_STRLEN),
         JG_MIN(JG_CONTEXT_BEFORE_MAX_STRLEN, jg->json_cur - err_line));
 
-    size_t err_char_size = get_utf8_char_size(jg->json_cur, jg->json_over);
+    size_t err_char_size = get_utf8_char_size((const uint8_t *) jg->json_cur,
+        (const uint8_t *) jg->json_over);
     char err_char[4 + 1] = {0}; // Accomodate max 4 byte UTF-8 chars
     memcpy(err_char, jg->json_cur, err_char_size);
 

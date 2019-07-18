@@ -376,13 +376,13 @@ static jg_ret parse_string(
                     (**c > '9' && **c < 'A') || (**c > 'F' && **c < 'a')) {
                     return JG_E_PARSE_STR_UTF16_INVALID;
                 }
-                // check surrogate pair range: \uD800 through \uDFFF
+                // Check surrogate pair range: \uD800 through \uDFFF
                 if (((*c)[-3] == 'D' || (*c)[-3] == 'd') && (*c)[-2] > '7') {
-                    // check high surrogate pair range: \uDC00 through \uDFFF
+                    // Check low surrogate pair range: \uDC00 through \uDFFF
                     if ((*c)[-2] > 'B' && (*c)[-2] != 'a' && (*c)[-2] != 'b') {
-                        return JG_E_PARSE_STR_UTF16_UNPAIRED_HIGH;
+                        return JG_E_PARSE_STR_UTF16_UNPAIRED_LOW;
                     }
-                    // verify that the low surrogate is followed by a high one
+                    // Verify that the high surrogate is followed by a low one.
                     if (*++(*c) != '/' ||
                         *++(*c) != 'u' ||
                         (*++(*c) != 'D' && **c != 'd') ||
@@ -397,9 +397,11 @@ static jg_ret parse_string(
                             **c > 'f' ||
                             (**c > '9' && **c < 'A') ||
                             (**c > 'F' && **c < 'a')) {
-                        return JG_E_PARSE_STR_UTF16_UNPAIRED_LOW;
+                        return JG_E_PARSE_STR_UTF16_UNPAIRED_HIGH;
                     }
                 }
+                // If none of the above 3 errors were returned, the escape
+                // sequence encodes a valid unicode code point.
                 continue;
             default:
                 return JG_E_PARSE_STR_ESC_INVALID;
@@ -474,7 +476,6 @@ static jg_ret parse_array(
     return JG_OK;
 }
 
-// todo: should actually handle comparing escaped and unescaped key strings ):
 static jg_ret check_key_is_unique(
     struct jg_pair const * pairs,
     struct jg_pair const * pair,
@@ -485,7 +486,10 @@ static jg_ret check_key_is_unique(
     // Jgrandson does not, primarily because pairs with duplicate keys would be
     // inaccessible with Jgrandson's getter API.
     for (struct jg_pair const * p = pairs; p < pair; p++) {
-        if (p->key.byte_c == byte_c && !strncmp(p->key.json, key, byte_c)) {
+        bool strings_are_equal = false;
+        JG_GUARD(json_strings_are_equal((uint8_t const *) p->key.json,
+            p->key.byte_c, (uint8_t const *) key, byte_c, &strings_are_equal));
+        if (strings_are_equal) {
             return JG_E_PARSE_OBJ_DUPLICATE_KEY;
         }
     }

@@ -166,11 +166,57 @@ jg_ret print_alloc_str(
 ////////////////////////////////////////////////////////////////////////////////
 // jg_unicode.c prototypes (internal) //////////////////////////////////////////
 
+// Unlike the other files, jg_unicode.c expects string pointers to be of type
+// (uint8_t *) instead of (char *) for ease of unsigned arithmetic on non-ASCII.
+
 bool is_utf8_continuation_byte(
-    char c
+    uint8_t u
 );
 
 size_t get_utf8_char_size(
-    char const * c,
-    char const * const c_over
+    uint8_t const * u,
+    uint8_t const * const u_over
+);
+
+size_t get_unesc_byte_c(
+    uint8_t const * const json_str, // an already validated JSON string
+    size_t json_byte_c
+);
+
+size_t get_json_byte_c(
+    uint8_t const * const unesc_str,
+    size_t unesc_byte_c
+);
+
+size_t get_codepoint_c(
+    uint8_t const * const json_str, // an already validated JSON string
+    size_t json_byte_c
+);
+
+void json_str_to_unesc_str(
+    uint8_t const * const json_str, // an already validated JSON string
+    size_t json_byte_c,
+    uint8_t * unesc_str // pre-allocated (assisted by get_unesc_byte_c())
+);
+
+void unesc_str_to_json_str(
+    uint8_t const * unesc_str,
+    size_t unesc_byte_c,
+    uint8_t * json_str // pre-allocated (assisted by get_json_byte_c())
+);
+
+jg_ret json_strings_are_equal(
+    uint8_t const * const j1_str, // an already validated JSON string
+    size_t j1_byte_c,
+    uint8_t const * const j2_str, // an already validated JSON string
+    size_t j2_byte_c,
+    bool * strings_are_equal
+);
+
+jg_ret unesc_str_and_json_str_are_equal(
+    uint8_t const * const unesc_str,
+    size_t unesc_byte_c,
+    uint8_t const * const json_str, // an already validated JSON string
+    size_t json_byte_c,
+    bool * strings_are_equal
 );

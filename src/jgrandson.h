@@ -76,8 +76,8 @@ typedef enum {
     JG_E_PARSE_STR_UNESC_CONTROL = 35,
     JG_E_PARSE_STR_ESC_INVALID = 36,
     JG_E_PARSE_STR_UTF16_INVALID = 37,
-    JG_E_PARSE_STR_UTF16_UNPAIRED_HIGH = 38,
-    JG_E_PARSE_STR_UTF16_UNPAIRED_LOW = 39,
+    JG_E_PARSE_STR_UTF16_UNPAIRED_LOW = 38,
+    JG_E_PARSE_STR_UTF16_UNPAIRED_HIGH = 39,
     JG_E_PARSE_STR_TOO_LARGE = 40,
     JG_E_PARSE_ARR_INVALID_SEP = 41,
     JG_E_PARSE_OBJ_INVALID_KEY = 42,
@@ -136,7 +136,7 @@ void jg_reinit(
 );
 
 //##############################################################################
-//## general prototypes (jg_util.c) ############################################
+//## general prototypes (jg_error.c) ###########################################
 
 char const * jg_get_err_str(
     jg_t * jg,
@@ -190,6 +190,50 @@ jg_ret jg_obj_get_json_type(
     jg_obj_get_t * obj,
     char const * key,
     enum jg_type * type
+);
+
+////////////////////////////////////////////////////////////////////////////////
+// jg_[root|arr|obj]_get_bool() ////////////////////////////////////////////////
+
+jg_ret jg_root_get_bool(
+    jg_t * jg,
+    bool * v
+);
+
+jg_ret jg_arr_get_bool(
+    jg_t * jg,
+    jg_arr_get_t * arr,
+    size_t arr_i,
+    bool * v
+);
+
+// Take defaults directly as parameter, since bool has no other options to take.
+jg_ret jg_obj_get_bool(
+    jg_t * jg,
+    jg_obj_get_t * obj,
+    char const * key,
+    bool const * defa,
+    bool * v
+);
+
+////////////////////////////////////////////////////////////////////////////////
+// jg_[root|arr|obj]_get_null() ////////////////////////////////////////////////
+
+// Having a "v" parameter would be pointless in the case of ..._get_null().
+jg_ret jg_root_get_null(
+    jg_t * jg
+);
+
+jg_ret jg_arr_get_null(
+    jg_t * jg,
+    jg_arr_get_t * arr,
+    size_t arr_i
+);
+
+jg_ret jg_obj_get_null(
+    jg_t * jg,
+    jg_obj_get_t * obj,
+    char const * key
 );
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -248,6 +292,34 @@ jg_ret jg_obj_get_arr_defa(
 ////////////////////////////////////////////////////////////////////////////////
 // jg_[root|arr|obj]_get_obj() /////////////////////////////////////////////////
 
+// All remaining getters have the same form of protottpe. Use of the following
+// macros macros reduces the size of this header by a few hundred lines.
+
+#define JG_ROOT_GET(_suf, _type) \
+jg_ret jg_root_get##_suf( \
+    jg_t * jg, \
+    jg_root##_suf * opt, \
+    _type * v \
+)
+
+#define JG_ARR_GET(_suf, _type) \
+jg_ret jg_arr_get##_suf( \
+    jg_t * jg, \
+    jg_arr_get_t * arr, \
+    size_t arr_i, \
+    jg_arr##_suf * opt, \
+    _type * v \
+)
+
+#define JG_OBJ_GET(_suf, _type) \
+jg_ret jg_obj_get##_suf( \
+    jg_t * jg, \
+    jg_obj_get_t * obj, \
+    char const * key, \
+    jg_obj##_suf * opt, \
+    _type * v \
+)
+
 struct jg_opt_obj {
     char * * * keys;
     size_t * key_c;
@@ -265,49 +337,40 @@ struct jg_opt_obj_defa {
 };
 
 typedef struct jg_opt_obj jg_root_obj;
-jg_ret jg_root_get_obj(
-    jg_t * jg,
-    jg_root_obj * opt,
-    jg_obj_get_t * * v
-);
+JG_ROOT_GET(_obj, jg_obj_get_t *);
 
 typedef struct jg_opt_obj jg_arr_obj;
-jg_ret jg_arr_get_obj(
-    jg_t * jg,
-    jg_arr_get_t * arr,
-    size_t arr_i,
-    jg_arr_obj * opt,
-    jg_obj_get_t * * v
-);
+JG_ARR_GET(_obj, jg_obj_get_t *);
 
 typedef struct jg_opt_obj jg_obj_obj;
-jg_ret jg_obj_get_obj(
-    jg_t * jg,
-    jg_obj_get_t * obj,
-    char const * key,
-    jg_obj_obj * opt,
-    jg_obj_get_t * * v
-);
+JG_OBJ_GET(_obj, jg_obj_get_t *);
 
 typedef struct jg_opt_obj_defa jg_obj_obj_defa;
-jg_ret jg_obj_get_obj_defa(
-    jg_t * jg,
-    jg_obj_get_t * obj,
-    char const * key,
-    jg_obj_obj_defa * opt,
-    jg_obj_get_t * * v
-);
+JG_OBJ_GET(_obj_defa, jg_obj_get_t *);
 
 ////////////////////////////////////////////////////////////////////////////////
-// jg_[root|arr|obj]_get_(caller)str() /////////////////////////////////////////
+// jg_[root|arr|obj]_get_(json)_(caller)str() //////////////////////////////////
 
-// These getters come in two forms with regard to the destination buffer "v".
+// These getters come in 2 * 2 = 4 forms:
+// 
+// * 2 forms with regard to escape sequences (see also rfc8259):
 //
-// 1) jg_[root|arr|obj]_get_str():
-//     The string is copied into a malloc()ed char buffer "v". Jgrandson will
-//     never free() this buffer: doing so is the responsibility of the caller.
+// 1) jg_[root|arr|obj]_get_(caller)str():
+//    All escape sequences as they may appear in the JSON string in the JSON
+//    text are unescaped prior to copying their contents to the destination;
+//    except for any escaped null-terminators ("\u0000"), which are discarded.
 //
-// 2) jg_[root|arr|obj]_get_callerstr():
+// 2) jg_[root|arr|obj]_get_json_(caller)str():
+//    All escape sequence contained in the JSON string are left unescaped: the
+//    JSON string is copied to the destination as-is.
+//
+// * And 2 forms with regard to the destination buffer "v":
+//
+// 1) jg_[root|arr|obj]_get_(json)_str():
+//    The string is copied into a malloc()ed char buffer "v". Jgrandson will
+//    never free() this buffer: doing so is the responsibility of the caller.
+//
+// 2) jg_[root|arr|obj]_get_(json)_callerstr():
 //    The string is copied into a caller-supplied buffer "v". To obtain the size
 //    needed for this caller-supplied buffer, use the "sprintf(NULL, 0, ...)
 //    paradigm": call ..._get_caller_str() with a "v" of NULL and a non-NULL
@@ -316,18 +379,17 @@ jg_ret jg_obj_get_obj_defa(
 
 #define JG_OPT_STR_COMMON \
     size_t * byte_c; \
-    size_t * char_c; \
+    size_t * codepoint_c; \
     char const * min_byte_c_reason; \
     char const * max_byte_c_reason; \
-    char const * min_char_c_reason; \
-    char const * max_char_c_reason; \
+    char const * min_cp_c_reason; \
+    char const * max_cp_c_reason; \
     size_t min_byte_c; \
     size_t max_byte_c; \
-    size_t min_char_c; \
-    size_t max_char_c; \
+    size_t min_cp_c; \
+    size_t max_cp_c; \
     bool nullify_empty_str; \
     bool omit_null_terminator
-//  bool unescape; -- todo: unescaping isn't implemented yet ):
 
 struct jg_opt_str {
     JG_OPT_STR_COMMON;
@@ -341,129 +403,45 @@ struct jg_opt_obj_str {
 #undef JG_OPT_STR_COMMON
 
 typedef struct jg_opt_str jg_root_str;
-jg_ret jg_root_get_str(
-    jg_t * jg,
-    jg_root_str * opt,
-    char * * v
-);
+JG_ROOT_GET(_str, char *);
 
 typedef struct jg_opt_str jg_root_callerstr;
-jg_ret jg_root_get_callerstr(
-    jg_t * jg,
-    jg_root_callerstr * opt,
-    char * v
-);
+JG_ROOT_GET(_callerstr, char);
+
+typedef struct jg_opt_str jg_root_json_str;
+JG_ROOT_GET(_json_str, char *);
+
+typedef struct jg_opt_str jg_root_json_callerstr;
+JG_ROOT_GET(_json_callerstr, char);
+
 
 typedef struct jg_opt_str jg_arr_str;
-jg_ret jg_arr_get_str(
-    jg_t * jg,
-    jg_arr_get_t * arr,
-    size_t arr_i,
-    jg_arr_str * opt,
-    char * * v
-);
+JG_ARR_GET(_str, char *);
 
 typedef struct jg_opt_str jg_arr_callerstr;
-jg_ret jg_arr_get_callerstr(
-    jg_t * jg,
-    jg_arr_get_t * arr,
-    size_t arr_i,
-    jg_arr_callerstr * opt,
-    char * v
-);
+JG_ARR_GET(_callerstr, char);
+
+typedef struct jg_opt_str jg_arr_json_str;
+JG_ARR_GET(_json_str, char *);
+
+typedef struct jg_opt_str jg_arr_json_callerstr;
+JG_ARR_GET(_json_callerstr, char);
+
 
 typedef struct jg_opt_obj_str jg_obj_str;
-jg_ret jg_obj_get_str(
-    jg_t * jg,
-    jg_obj_get_t * obj,
-    char const * key,
-    jg_obj_str * opt,
-    char * * v
-);
+JG_OBJ_GET(_str, char *);
 
 typedef struct jg_opt_obj_str jg_obj_callerstr;
-jg_ret jg_obj_get_callerstr(
-    jg_t * jg,
-    jg_obj_get_t * obj,
-    char const * key,
-    jg_obj_callerstr * opt,
-    char * v
-);
+JG_OBJ_GET(_callerstr, char);
 
-////////////////////////////////////////////////////////////////////////////////
-// jg_[root|arr|obj]_get_null() ////////////////////////////////////////////////
+typedef struct jg_opt_obj_str jg_obj_json_str;
+JG_OBJ_GET(_json_str, char *);
 
-// Having a "v" parameter would be pointless in the case of ..._get_null().
-jg_ret jg_root_get_null(
-    jg_t * jg
-);
-
-jg_ret jg_arr_get_null(
-    jg_t * jg,
-    jg_arr_get_t * arr,
-    size_t arr_i
-);
-
-jg_ret jg_obj_get_null(
-    jg_t * jg,
-    jg_obj_get_t * obj,
-    char const * key
-);
-
-////////////////////////////////////////////////////////////////////////////////
-// jg_[root|arr|obj]_get_bool() ////////////////////////////////////////////////
-
-jg_ret jg_root_get_bool(
-    jg_t * jg,
-    bool * v
-);
-
-jg_ret jg_arr_get_bool(
-    jg_t * jg,
-    jg_arr_get_t * arr,
-    size_t arr_i,
-    bool * v
-);
-
-// Take defaults directly as parameter, since bool has no other options to take.
-jg_ret jg_obj_get_bool(
-    jg_t * jg,
-    jg_obj_get_t * obj,
-    char const * key,
-    bool const * defa,
-    bool * v
-);
+typedef struct jg_opt_obj_str jg_obj_json_callerstr;
+JG_OBJ_GET(_json_callerstr, char);
 
 ////////////////////////////////////////////////////////////////////////////////
 // jg_[root|arr|obj]_get_<integer_type>() //////////////////////////////////////
-
-// There are many integer getter prototypes but they all take the same form, so
-// using these  macros reduces the size of this header by a few hundred lines.
-
-#define JG_ROOT_GET_INT(_suf, _type) \
-jg_ret jg_root_get##_suf( \
-    jg_t * jg, \
-    jg_root##_suf * opt, \
-    _type * v \
-)
-
-#define JG_ARR_GET_INT(_suf, _type) \
-jg_ret jg_arr_get##_suf( \
-    jg_t * jg, \
-    jg_arr_get_t * arr, \
-    size_t arr_i, \
-    jg_arr##_suf * opt, \
-    _type * v \
-)
-
-#define JG_OBJ_GET_INT(_suf, _type) \
-jg_ret jg_obj_get##_suf( \
-    jg_t * jg, \
-    jg_obj_get_t * obj, \
-    char const * key, \
-    jg_obj##_suf * opt, \
-    _type * v \
-)
 
 #define JG_GET_INT(_suf, _type) \
 struct jg_opt##_suf { \
@@ -482,13 +460,13 @@ struct jg_opt_obj##_suf { \
 }; \
 \
 typedef struct jg_opt##_suf jg_root##_suf; \
-JG_ROOT_GET_INT(_suf, _type); \
+JG_ROOT_GET(_suf, _type); \
 \
 typedef struct jg_opt##_suf jg_arr##_suf; \
-JG_ARR_GET_INT(_suf, _type); \
+JG_ARR_GET(_suf, _type); \
 \
 typedef struct jg_opt_obj##_suf jg_obj##_suf; \
-JG_OBJ_GET_INT(_suf, _type)
+JG_OBJ_GET(_suf, _type)
 
 JG_GET_INT(_int8, int8_t);
 JG_GET_INT(_char, char);
