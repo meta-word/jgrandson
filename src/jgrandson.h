@@ -527,7 +527,7 @@ jg_ret jg_obj_get##_suf( \
 #define JG_GET_FLO(_suf, _type) \
 JG_ROOT_GET_FLO(_suf, _type); \
 JG_ARR_GET_FLO(_suf, _type); \
-JG_ARR_GET_FLO(_suf, _type)
+JG_OBJ_GET_FLO(_suf, _type)
 
 JG_GET_FLO(_float, float);
 JG_GET_FLO(_double, double);
