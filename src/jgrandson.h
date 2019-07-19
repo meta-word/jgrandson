@@ -121,6 +121,14 @@ typedef enum {
     } \
 } while (0)
 
+// There's a long-standing bug in GCC where it mistakenly emits a
+// -Wmissing-field-initializers in cases where fields are initialized with
+// designated initializers: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=84685
+// This is annoying given that designated field initializers are a key
+// ingredient to Jgrandson's flexible optional argument passing.
+// As a workaround, suppress such noise for any file that includes this header:
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+
 //##############################################################################
 //## general prototypes (jg_heap.c) ############################################
 
