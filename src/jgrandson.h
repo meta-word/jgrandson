@@ -448,16 +448,16 @@ JG_OBJ_GET(_json_callerstr, char);
 struct jg_opt##_suf { \
     char const * min_reason; \
     char const * max_reason; \
-    _type min; \
-    _type max; \
+    _type * min; \
+    _type * max; \
 }; \
 \
 struct jg_opt_obj##_suf { \
     _type const * defa; \
     char const * min_reason; \
     char const * max_reason; \
-    _type min; \
-    _type max; \
+    _type * min; \
+    _type * max; \
 }; \
 \
 typedef struct jg_opt##_suf jg_root##_suf; \

@@ -772,8 +772,8 @@ do { \
     _max_type n = 0; \
     if (opt) { \
         JG_GUARD((_str_to_int_func)(jg, str, opt->min_reason, opt->max_reason, \
-            opt->min ? opt->min : (_type_min), \
-            opt->max ? opt->max : (_type_max), &n)); \
+            opt->min ? *opt->min : (_type_min), \
+            opt->max ? *opt->max : (_type_max), &n)); \
     } else { \
         JG_GUARD((_str_to_int_func)(jg, str, NULL, NULL, (_type_min), \
             (_type_max), &n)); \
