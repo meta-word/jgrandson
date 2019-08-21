@@ -17,7 +17,7 @@ On other platforms the Makefile will probably need some simple editing.
 
 The Jgrandson API consists exactly of the entire [jgrandson.h](https://github.com/wbudd/jgrandson/blob/master/src/jgrandson.h) header file, so see the many function definitions and comments contained therein for more comprehensive usage information.
 
-That said, to get started quickly, a self-contained example may be helpful. If so, consider the following `foo.c`, which can be compiled with something like `gcc -Wall -Wextra -std=c11 -ljgrandson foo.c`:
+That said, to get started quickly, a self-contained example may be helpful. If so, consider the following `foo.c`, which should be compilable with something like `gcc -Wall -Wextra -std=c11 -ljgrandson foo.c`:
 ```C
 #include <jgrandson.h>
 
@@ -41,3 +41,29 @@ int main(void) {
     return ret;
 }
 ```
+Now let's assume the existence of some silly JSON file `foo.json`:
+```JSON
+{
+  "iGadgetX": ["Is this\u0000 超poor", "yet valid JSON", "\uD834\uDD1E？\n", true],
+  "I am a 🔑": {
+    "id": 18446744073709551615,
+    "размер": 9876543210,
+    "short_flo": 0.089,
+    "long_flo": -5e+3
+  }
+}
+```
+...and store it in an equally nonsensical struct like this:
+```C
+struct {
+    char * * iGadgetX;
+    bool isPoorExample;
+    struct {
+        uint64_t id;
+        size_t size;
+        float short_flo;
+        long double long_flo;
+    }; // C11 anonymous struct
+} foo = {0};
+```
+...with a function named `foo_parse_json()`, or perform the opposite action with `foo_generate_json()`.
