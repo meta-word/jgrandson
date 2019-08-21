@@ -15,41 +15,29 @@ On other platforms the Makefile will probably need some simple editing.
 
 ## Usage
 
-Include the Jgrandson header with `#include <jgrandson.h>`, and pass the `-ljgrandson` linker flag to your compiler. Then start with `jg_t * jg = jg_init()` to obtain an opaque pointer type that every subsequent Jgrandson call expects to receive as its 1st argument. When you're done calling Jgrandson, make a final call to `jg_free(jg)` to free all memory associated with that session.
+The Jgrandson API consists exactly of the entire [jgrandson.h](https://github.com/wbudd/jgrandson/blob/master/src/jgrandson.h) header file, so see the many function definitions and comments contained therein for more comprehensive usage information.
 
-Between `jg_init()` and `jg_free()` Jgrandson supports two mutually exclusive usage patterns:
+That said, to get started quickly, a self-contained example may be helpful. If so, consider the following `foo.c`, which can be compiled with something like `gcc -Wall -Wextra -std=c11 -ljgrandson foo.c`:
+```C
+#include <jgrandson.h>
 
-1) A single call to a `jg_parse_...()` function, followed by one or more getter calls of the form `jg_[root|arr|obj]_get_...()`.
-2) One or more setter calls of the form `jg_[root|arr|obj]_set_...()`, followed by a single call to a `jg_generate_...()` function.
+// Optional, but makes Jgrandson return value checking a little less cumbersome.
+#define FOO_GUARD_JG(_ret_val) if ((_ret_val) != JG_OK) return -1
 
-No state can be shared between these two usage patterns. While `jg_reinit()` can be used to switch from one to the other, doing so is functionally equivalent to calling `jg_free()` followed by `jg_init()`.
+int main(void) {
+    // Initialize a Jgrandson session to obtain an opaque jg_t pointer. 
+    jg_t * jg = jg_init(); // jg to be 1st arg to all following jg_...() calls
 
-Every Jgrandson function returns the type `jg_ret`, which is an `enum` that can equal `JG_OK` (zero) or an `JG_E_...` error value (greater than zero). To obtain an error string associated with the last returned `jg_ret` error value, call `jg_get_err_str()`. The returned string should be treated read-only/`const`, and may be `free()`d by Jgrandson during a subsequent call to `jg_get_err_str()` or `jg_free()`.
+    int ret = foo_parse_json(jg); // See "Parsing and getting JSON" below.
+    // Or: int ret = foo_generate_json(jg); // See "Setting and generating JSON".
+    
+    if (ret) {
+        // Args 2 and 3 allow custom before and after error highlighting marker
+        // strings. E.g., jg_get_err_str(jg, "-->", "<--").
+        fprintf(stderr, "Jgrandson: %s\n", jg_get_err_str(jg, NULL, NULL));
+    }
 
-For the exact definition of the Jgrandson API and all its public prototypes refer to the `jgrandson.h` [header file](https://github.com/wbudd/jgrandson/blob/master/src/jgrandson.h).
-
-### Parsing
-
-A JSON text can be parsed with either of the following functions:
-
-`jg_parse_file()`: Takes a file path string, reads the corresponding file as a JSON text, and attempts to parse it.
-
-`jg_parse_str()`: Takes a string, copies its contents to a private `malloc`ed string buffer, and attempts to parse it.
-
-`jg_parse_callerstr()`: Same as above, except that it parses the string as-is without making a copy. Note that the caller must guarantee that the string's storage duration lasts at least as long as the Jgrandson session (i.e., until `jg_free()` is called), and that the string is not altered during that time.
-
-If the parse function returns `JG_OK`, the JSON text in question has been fully parsed and validated in accordance with [RFC 8259](https://tools.ietf.org/html/rfc8259).
-
-### Getting
-
-### Setting
-
-### Generating
-
-Once you've completed setting JSON values, a JSON text can be generated with either of the following functions:
-
-`jg_parse_file()`
-
-`jg_parse_str()`
-
-`jg_parse_callerstr()`
+    jg_free(jg); // Free all data belonging to this Jgrandson session.
+    return ret;
+}
+```
