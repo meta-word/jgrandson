@@ -42,7 +42,7 @@ To obtain an error string associated with the last returned `jg_ret` error value
 
 ## Example
 
-To get started quickly, a self-contained example may be helpful. If so, consider the following `foo.c`, which should be compilable with something like `gcc -Wall -Wextra -std=c11 -ljgrandson foo.c`:
+To get started quickly, a self-contained example may be helpful. If so, consider the following [foo.c](https://github.com/wbudd/jgrandson/blob/master/example/foo.c), which should be compilable with something like `gcc -Wall -Wextra -std=c11 -ljgrandson foo.c`:
 ```C
 #include <jgrandson.h>
 
@@ -66,10 +66,10 @@ int main(void) {
     return ret;
 }
 ```
-Now let's assume the existence of some silly JSON file `foo.json`:
+Now let's assume the existence of some silly JSON file [foo.json](https://github.com/wbudd/jgrandson/blob/master/example/foo.json):
 ```JSON
 {
-  "iGadgetX": ["Is this\u0000 超poor", "yet valid JSON", "\uD834\uDD1E？\n", true],
+  "iGadgetX": ["Is\u0000超poor", "yet valid JSON", "\uD834\uDD1E？\n", true],
   "I am a 🔑": {
     "id": 18446744073709551615,
     "размер": 9876543210,
