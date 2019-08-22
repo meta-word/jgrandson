@@ -104,9 +104,10 @@ int foo_generate_json(jg_t * jg) {
 }
 ```
 ## Contributing
-Pull requests and other contributions are always welcome! License: MIT.
+Pull requests and other contributions are always welcome! License: [MIT](https://github.com/wbudd/jgrandson/blob/master/LICENSE).
+
 ## Email me
-Feel free to send me an email at the address below, especially if you might be interested in offering me employment or contractual work. Based in Osaka, Japan; but also happy to work remotely.
+Feel free to send me email at the address below, *especially* if you might be interested in offering me employment or contractual work. Based in Osaka, Japan; but also happy to work remotely.
 
            _               _               _     _                   
           | |             | |             | |   | |                  
