@@ -1,6 +1,14 @@
 # Jgrandson
 
-Jgrandson is a JSON parser and generator for C with a convenient getter/setter API.
+Jgrandson is a JSON parser and generator for the C language with a convenient getter/setter API.
+
+* [Installation](#installation)
+* [Usage](#usage)
+  * [Sessions](#sessions)
+  * [Error handling](#error-handling)
+* [Example](#example)
+* [Contributing](#contributing)
+* [Email me](#email-me)
 
 ## Installation
 
@@ -95,3 +103,15 @@ int foo_generate_json(jg_t * jg) {
     ;
 }
 ```
+## Contributing
+Pull requests and other contributions are always welcome! License: MIT.
+## Email me
+Feel free to send me an email at the address below, especially if you might be interested in offering me employment or contractual work. Based in Osaka, Japan; but also happy to work remotely.
+
+           _               _               _     _                   
+          | |             | |             | |   | |                  
+     _ _ _| |__      _ _ _| |__  _   _  __| | __| |  ____ ___  ____  
+    | | | |  _ \    | | | |  _ \| | | |/ _  |/ _  | / ___) _ \|    \ 
+    | | | | |_) ) @ | | | | |_) ) |_| ( (_| ( (_| |( (__| |_| | | | |
+     \___/|____/     \___/|____/|____/ \____|\____(_)____)___/|_|_|_|
+（日本語能力試験N1を取得／永住者の在留資格あり）
