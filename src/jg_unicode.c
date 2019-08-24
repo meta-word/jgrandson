@@ -246,7 +246,7 @@ jg_ret unesc_str_and_json_str_are_equal(
     // Try to compare the strings naively first...
     for (uint8_t const * unesc = unesc_str, * json = json_str;;) {
         if (unesc == unesc_str + unesc_byte_c) {
-            *strings_are_equal = json == json_str + json_byte_c;
+            *strings_are_equal = unesc_byte_c == json_byte_c;
             return JG_OK;
         }
         if (json == json_str + json_byte_c) {

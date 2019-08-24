@@ -352,13 +352,12 @@ static jg_ret parse_string(
         }
         switch (**c) {
         case '"':
-            (*c)++;
             v->type = JG_TYPE_STR;
-            size_t byte_c = *c - v->json;
-            if (byte_c > UINT32_MAX) {
+            v->byte_c = *c - v->json;
+            if (v->byte_c > UINT32_MAX) {
                 return JG_E_PARSE_STR_TOO_LARGE; // 4 billion chars is too much
             }
-            v->byte_c = byte_c;
+            (*c)++;
             return JG_OK;
         case '\\':
             switch (*++(*c)) {
@@ -383,7 +382,7 @@ static jg_ret parse_string(
                         return JG_E_PARSE_STR_UTF16_UNPAIRED_LOW;
                     }
                     // Verify that the high surrogate is followed by a low one.
-                    if (*++(*c) != '/' ||
+                    if (*++(*c) != '\\' ||
                         *++(*c) != 'u' ||
                         (*++(*c) != 'D' && **c != 'd') ||
                         *++(*c) < 'C' ||

@@ -40,7 +40,7 @@ int foo_parse_json(jg_t * jg) {
 	FOO_GUARD_JG(jg_obj_get_arr(jg, root_obj, "iGadgetX", &(jg_obj_arr){
         // Pointer to a struct literal containing one or more optional arguments
         .min_c = 2, // Require the JSON array to consist of at least 2 elements.
-        .max_c = 100, // But no more than 100 elements.
+        .max_c = 100, // Set some max. (A .max_c of 0 is treated as infinity.)
         // Custom strings to be included by jg_get_err_str() if bound exceeded
         .min_c_reason = "iGadgetX requires at least 1 string and 1 boolean",
         .max_c_reason = "iGadgetX can't handle more than 100 values"

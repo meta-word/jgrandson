@@ -474,7 +474,7 @@ static jg_ret handle_str_size_options(
         set_custom_err_str(jg, min_byte_c_reason);
         return jg->ret = JG_E_GET_STR_BYTE_C_TOO_FEW;
     }
-    if (dst_byte_c > max_byte_c) {
+    if (max_byte_c && dst_byte_c > max_byte_c) {
         jg->err_val.s = max_byte_c;
         jg->json_cur = child->json;
         set_custom_err_str(jg, max_byte_c_reason);
@@ -490,7 +490,7 @@ static jg_ret handle_str_size_options(
         set_custom_err_str(jg, min_cp_c_reason);
         return jg->ret = JG_E_GET_STR_CHAR_C_TOO_FEW;
     }
-    if (cp_c > max_cp_c) {
+    if (max_cp_c && cp_c > max_cp_c) {
         jg->err_val.s = max_cp_c;
         jg->json_cur = child->json;
         set_custom_err_str(jg, max_cp_c_reason);
