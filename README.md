@@ -2,11 +2,22 @@
 
 Jgrandson is a JSON parser and generator for the C language with a convenient getter/setter API.
 
+* Modern API (C11), fully compliant with the current version of the JSON standard (as of August 2019: [RFC 8259](https://tools.ietf.org/html/rfc8259)
+* Getter and setter functions for every common C type, each available in 3 forms: root element, array element, and object element. No need to cast!
+* Extensive range of getter options customizable per function call through convenient optional arg struct type signatures, allowing custom boundary checking and
+ custom error message contexts
+* Unique error codes, informative error strings, and inclusion of highlighted parse error contexts
+* Feature-complete optional args regarding escaping/unescaping of unicode and control characters, caller/callee-provided buffers, (non-)null-termination of strings, and whitespace generation
+* Complete support for default key-value pairs: ideal for configuration file usage
+
+## Table of contents
+
 * [Installation](#installation)
 * [Usage](#usage)
   * [Sessions](#sessions)
   * [Error handling](#error-handling)
 * [Example](#example)
+* [Todo](#todo)
 * [Contributing](#contributing)
 * [Email me](#email-me)
 
@@ -220,6 +231,12 @@ int foo_generate_json(jg_t * jg) {
     return 0;
 }
 ```
+For "real-world" examples of Jgrandson usage, see [RingSocket](https://github.com/wbudd/ringsocket/blob/master/src/rs_conf.c) and [Realitree](https://github.com/wbudd/realitree/blob/master/realitree_ringsocket/src/rt_storage.c).
+
+## Todo
+* Create a test suite to test the many combinations of possible args/options.
+* Implement optional args for floating point getters similar to those of integer type getters - requires *correct* floating comparisons.
+
 ## Contributing
 Pull requests and other contributions are always welcome! License: [MIT](https://github.com/wbudd/jgrandson/blob/master/LICENSE).
 
