@@ -2,13 +2,12 @@
 
 Jgrandson is a JSON parser and generator for the C language with a convenient getter/setter API.
 
-* Modern API (C11), fully compliant with the current version of the JSON standard (as of August 2019: [RFC 8259](https://tools.ietf.org/html/rfc8259)
-* Getter and setter functions for every common C type, each available in 3 forms: root element, array element, and object element. No need to cast!
-* Extensive range of getter options customizable per function call through convenient optional arg struct type signatures, allowing custom boundary checking and
- custom error message contexts
+* Modern API (C11), fully compliant with the current JSON standard (as of August 2019: [RFC 8259](https://tools.ietf.org/html/rfc8259))
+* Getter and setter functions for every common C type, each available in 3 forms: for root, array, and object elements. No need to cast!
+* Extensive range of getter options customizable per function call through convenient optional arg struct type signatures, allowing custom boundary checking, error message contexts, and more
 * Unique error codes, informative error strings, and inclusion of highlighted parse error contexts
-* Feature-complete optional args regarding escaping/unescaping of unicode and control characters, caller/callee-provided buffers, (non-)null-termination of strings, and whitespace generation
-* Complete support for default key-value pairs: ideal for configuration file usage
+* Feature-complete optional args giving the caller full control over escaping/unescaping of unicode and control characters, usage of caller/callee-provided buffers, (non-)null-termination of strings, and whitespace generation
+* Complete support for default key-value pairs: ideal for configuration file parsing
 
 ## Table of contents
 
