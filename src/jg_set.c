@@ -132,6 +132,7 @@ JG_ROOT_SET(_suf, _type) { \
     JG_GUARD(check_state_set(jg)); \
     JG_GUARD(check_root_not_set(jg)); \
     struct jg_val_out * child = &jg->root_out; \
+    child->type = _json_type; \
     _set_call; \
     return jg->ret = JG_OK; \
 } \

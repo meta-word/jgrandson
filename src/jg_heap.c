@@ -32,6 +32,9 @@ jg_ret set_custom_err_str(
     jg_t * jg,
     char const * custom_err_str
 ) {
+    if (!custom_err_str) {
+        return JG_OK;
+    }
     size_t byte_c = strlen(custom_err_str) + 1;
     if (jg->custom_err_str) {
         jg->custom_err_str = realloc(jg->custom_err_str, byte_c);
@@ -55,7 +58,7 @@ jg_ret alloc_strcpy(
     size_t byte_c
 ) {
     *dst = malloc(byte_c + 1);
-    if (*dst) {
+    if (!*dst) {
         return jg->ret = JG_E_MALLOC;
     }
     memcpy(*dst, src, byte_c);

@@ -137,13 +137,12 @@ jg_ret jg_generate_str(
     jg_t * jg,
     jg_opt_whitespace * opt,
     char * * json_text,
-    size_t * byte_c
+    size_t * _byte_c
 ) {
-    if (jg->state != JG_STATE_SET || jg->state != JG_STATE_GENERATE) {
+    if (jg->state != JG_STATE_SET && jg->state != JG_STATE_GENERATE) {
         return jg->ret = JG_E_STATE_NOT_GENERATE;
     }
     jg->state = JG_STATE_GENERATE;
-    *byte_c = 0;
     struct jg_opt_whitespace defa = {
         .indent = (size_t []){2},
         .indent_is_tab = false,
@@ -156,12 +155,20 @@ jg_ret jg_generate_str(
     } else if (!opt->indent) {
         opt->indent = defa.indent;
     }
-    generate_json_text(&jg->root_out, NULL, byte_c, (size_t []){0}, opt);
-    *json_text = malloc(*byte_c + 1);
-    if (*json_text) {
+    size_t byte_c = 0;
+    generate_json_text(&jg->root_out, NULL, &byte_c, (size_t []){0}, opt);
+    byte_c += !opt->no_newline_before_eof;
+    if (_byte_c) {
+        *_byte_c = byte_c;
+    }
+    *json_text = malloc(byte_c + 1);
+    if (!*json_text) {
         return jg->ret = JG_E_MALLOC;
     }
-    (*json_text)[*byte_c] = '\0';
+    if (!opt->no_newline_before_eof) {
+        (*json_text)[byte_c - 1] = '\n';
+    };
+    (*json_text)[byte_c] = '\0';
     generate_json_text(&jg->root_out, *json_text, (size_t []){0},
         (size_t []){0}, opt);
     return JG_OK;
@@ -173,7 +180,7 @@ jg_ret jg_generate_callerstr(
     char * json_text,
     size_t * byte_c
 ) {
-    if (jg->state != JG_STATE_SET || jg->state != JG_STATE_GENERATE) {
+    if (jg->state != JG_STATE_SET && jg->state != JG_STATE_GENERATE) {
         return jg->ret = JG_E_STATE_NOT_GENERATE;
     }
     jg->state = JG_STATE_GENERATE;
@@ -191,6 +198,9 @@ jg_ret jg_generate_callerstr(
         opt->indent = defa.indent;
     }
     generate_json_text(&jg->root_out, json_text, byte_c, (size_t []){0}, opt);
+    if (!opt->no_newline_before_eof) {
+        json_text[*byte_c++] = '\n';
+    }
     return JG_OK;
 }
 
@@ -199,7 +209,7 @@ jg_ret jg_generate_file(
     jg_opt_whitespace * opt,
     char const * filepath
 ) {
-    if (jg->state != JG_STATE_SET || jg->state != JG_STATE_GENERATE) {
+    if (jg->state != JG_STATE_SET && jg->state != JG_STATE_GENERATE) {
         return jg->ret = JG_E_STATE_NOT_GENERATE;
     }
     jg->state = JG_STATE_GENERATE;

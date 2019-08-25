@@ -27,16 +27,16 @@ static char const * err_strs[] = {
        "Jgrandson is in its initial state (i.e., after jg_init() or "
        "jg_reinit()), or after one or more previous successful setter function "
        "calls. " JG_REINIT_MSG,
-/*04*/ "jg_gen_...() JSON generator functions can only be called after at "
+/*04*/ "jg_generate_...() JSON generator functions can only be called after at "
        "least one successful jg_[root|arr|obj]_set_...() setter function call "
        "was made. " JG_REINIT_MSG,
        // setter errors
 /*05*/ "Jgrandson does not permit setting the root JSON value more than once. "
         JG_REINIT_MSG,
-/*06*/ "The 2nd argument to jg_obj_set_...() must be a JSON object type "
+/*06*/ "The 2nd argument to jg_arr_set_...() must be a JSON array type "
+       "(i.e., a jg_arr_set_t pointer).",
+/*07*/ "The 2nd argument to jg_obj_set_...() must be a JSON object type "
        "(i.e., a jg_obj_set_t pointer).",
-/*07*/ "The 2nd argument to jg_arr_set_...() must be a JSON array type "
-       "(i.e., a jg_obj_arr_t pointer).",
 /*08*/ "Jgrandson does not permit setting a duplicate key in the same object.",
        // external errors without errno
 /*09*/ "Unsuccessful malloc()",
