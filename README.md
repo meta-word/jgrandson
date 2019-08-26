@@ -2,7 +2,7 @@
 
 Jgrandson is a JSON parser and generator for the C language with a convenient getter/setter API.
 
-* Modern API (C11), fully compliant with the current version of the JSON standard (as of August 2019: [RFC 8259](https://tools.ietf.org/html/rfc8259), except that the Jgrandson parser also allows comments: `/* C style */`, `// C++ style`, and `# Python style`.
+* Modern API (C11), fully compliant with the current version of the JSON standard (as of August 2019: [RFC 8259](https://tools.ietf.org/html/rfc8259), except that Jgrandson tolerates comments: `/* C style */`, `// C++ style`, and `# Python style`.
 * Getter and setter functions for every common C type, each available in 3 forms: for root, array, and object elements. No need to cast!
 * Extensive range of getter options customizable per function call through convenient optional arg struct type signatures, allowing custom boundary checking, error message contexts, and more
 * Unique error codes, informative error strings, and inclusion of highlighted parse error contexts
@@ -81,24 +81,24 @@ int main(void) {
 }
 ```
 Now let's assume the existence of some silly JSON file [foo.json](https://github.com/wbudd/jgrandson/blob/master/example/foo.json):
-```JSON
-# Even though the JSON standard doesn't allow comments, the Jgrandson author
-# believes that commenting should always be possible, no matter the language.
-{
-  "strings?": [
-    "Is\u0000超poor", // Jgrandson ignores escaped NULL bytes (\u0000).
-	"yet valid JSON",
-	"\uD834\uDD1E？\n", // musical symbol G CLEF (U+1D11E) as surrogate pair
-	true # mischievous array element of dissonant type
-  ],
-  "I am a 🔑": {
-    "id": 18446744073709551614,
-    "размер" /* Russian, I believe */: 9876543210,
-    "short_flo": 0.089,
-    "long_flo": -5e+3
-  }
-}
-```
+
+    # Even though the JSON standard doesn't allow comments, the Jgrandson author
+    # believes that commenting should always be possible, no matter the language.
+    {
+      "strings?": [
+        "Is\u0000超poor", // Jgrandson ignores escaped NULL bytes (\u0000).
+        "yet valid JSON",
+        "\uD834\uDD1E？\n", // musical symbol G CLEF (U+1D11E) as surrogate pair
+        true # mischievous array element of dissonant type
+      ],
+      "I am a 🔑": {
+        "id": 18446744073709551614,
+        "размер" /* Russian, I believe */: 9876543210,
+        "short_flo": 0.089,
+        "long_flo": -5e+3
+      }
+    }
+
 ...to be stored in an equally nonsensical C struct like this:
 ```C
 struct {
