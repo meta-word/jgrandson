@@ -6,21 +6,76 @@
 
 #include "jgrandson_internal.h"
 
-static void skip_any_whitespace(
+static void skip_any_whitespace_or_comments(
     char const * * c,
     char const * const c_over
 ) {
-    while (*c < c_over &&
-        (**c == ' ' || **c == '\n' || **c == '\t' || **c == '\r')) {
+    while (*c < c_over) {
+        switch (**c) {
+        case ' ': case '\n': case '\t': case '\r': // valid whitespace
+            break;
+        case '/':
+            if (*c + 1 >= c_over) {
+                return;
+            }
+            if (*++(*c) == '*') { // C style comment
+                do {
+                    do {
+                        if (++(*c) >= c_over) {
+                            return;
+                        }
+                    } while (**c != '*');
+                    if (++(*c) >= c_over) {
+                        return;
+                    }
+                } while (**c != '/');
+                break;
+            }
+            if (**c != '/') {
+                return;
+            }
+            // C++ style comment:
+            // fall through
+        case '#': // Python style comment
+            do {
+                if (++(*c) >= c_over) {
+                    return;
+                }
+            } while (**c != '\n' && **c != '\r');
+            break;
+        default:
+            return;
+        }
         (*c)++;
     }
 }
 
 // For cases where it's already known that the JSON string buffer is long enough
-static void reskip_any_whitespace(
+static void reskip_any_whitespace_or_comments(
     char const * * c
 ) {
-    while (**c == ' ' || **c == '\n' || **c == '\t' || **c == '\r') {
+    for (;;) {
+        switch (**c) {
+        case ' ': case '\n': case '\t': case '\r': // valid whitespace
+            break;
+        case '/':
+            if (*++(*c) == '*') { // C style comment
+                do {
+                    while (*++(*c) != '*');
+                } while (*++(*c) != '/');
+                break;
+            }
+            if (**c != '/') {
+                return;
+            }
+            // C++ style comment:
+            // fall through
+        case '#': // Python style comment
+            while (*++(*c) != '\n' && **c != '\r');
+            break;
+        default:
+            return;
+        }
         (*c)++;
     }
 }
@@ -82,6 +137,7 @@ static jg_ret skip_array(
             return JG_OK;
         default:
             (*c)++;
+            skip_any_whitespace_or_comments(c, c_over);
             continue;
         }
     }
@@ -105,6 +161,7 @@ static void reskip_array(
             continue;
         default:
             (*c)++;
+            reskip_any_whitespace_or_comments(c);
             continue;
         }
     }
@@ -132,6 +189,7 @@ static jg_ret skip_object(
             return JG_OK;
         default:
             (*c)++;
+            skip_any_whitespace_or_comments(c, c_over);
             continue;
         }
     }
@@ -155,6 +213,7 @@ static void reskip_object(
             continue;
         default:
             (*c)++;
+            reskip_any_whitespace_or_comments(c);
             continue;
         }
     }
@@ -165,7 +224,7 @@ static void reskip_object(
 static void reskip_element(
     char const * * c
 ) {
-    reskip_any_whitespace(c);
+    reskip_any_whitespace_or_comments(c);
     switch (**c) {
     case '"':
         reskip_string(c);
@@ -178,7 +237,8 @@ static void reskip_element(
         return;
     default:
         while (**c != ',' && **c != ']' && **c != '}') {
-            (*c)++; // reskip number/true/false/null/whitespace
+            (*c)++; // reskip number/true/false/null
+            reskip_any_whitespace_or_comments(c);
         }
     }
 }
@@ -422,7 +482,7 @@ static jg_ret parse_array(
     struct jg_val_in * v
 ) {
     char const * const open_bracket = (*c)++; // '['
-    reskip_any_whitespace(c);
+    reskip_any_whitespace_or_comments(c);
     if (**c == ']') {
         (*c)++;
         v->type = JG_TYPE_ARR;
@@ -439,7 +499,7 @@ static jg_ret parse_array(
     for (;;) {
         reskip_element(c);
         elem_c++;
-        reskip_any_whitespace(c);
+        reskip_any_whitespace_or_comments(c);
         switch (**c) {
         case ']':
             break;
@@ -464,7 +524,7 @@ static jg_ret parse_array(
     for (struct jg_val_in * elem = arr->elems;
         elem < arr->elems + arr->elem_c; elem++) {
         JG_GUARD(parse_element(c, elem));
-        reskip_any_whitespace(c);
+        reskip_any_whitespace_or_comments(c);
         // Check needed here because the reskip_element() call above is actually
         // a little too greedy when the element type is number/true/false/null.
         if (**c != ',' && **c != ']') {
@@ -500,7 +560,7 @@ static jg_ret parse_object(
     struct jg_val_in * v
 ) {
     char const * const open_brace = (*c)++; // '{'
-    reskip_any_whitespace(c);
+    reskip_any_whitespace_or_comments(c);
     if (**c == '}') {
         (*c)++;
         v->type = JG_TYPE_OBJ;
@@ -519,20 +579,20 @@ static jg_ret parse_object(
             return JG_E_PARSE_OBJ_INVALID_KEY;
         }
         reskip_string(c);
-        reskip_any_whitespace(c);
+        reskip_any_whitespace_or_comments(c);
         if (**c != ':') {
             return JG_E_PARSE_OBJ_KEYVAL_INVALID_SEP;
         }
         (*c)++;
         reskip_element(c);
         pair_c++;
-        reskip_any_whitespace(c);
+        reskip_any_whitespace_or_comments(c);
         switch (**c) {
         case '}':
             break;
         case ',':
             (*c)++;
-            reskip_any_whitespace(c);
+            reskip_any_whitespace_or_comments(c);
             continue;
         default:
             return JG_E_PARSE_OBJ_INVALID_SEP;
@@ -550,14 +610,14 @@ static jg_ret parse_object(
     v->obj = obj;
     *c = open_brace + 1;
     for (struct jg_pair * p = obj->pairs; p < obj->pairs + obj->pair_c; p++) {
-        reskip_any_whitespace(c);
+        reskip_any_whitespace_or_comments(c);
         JG_GUARD(parse_string(c, &p->key));
         JG_GUARD(check_key_is_unique(obj->pairs, p, p->key.json,
             p->key.byte_c));
-        reskip_any_whitespace(c);
+        reskip_any_whitespace_or_comments(c);
         (*c)++; // skip the ':' already known to be here
         JG_GUARD(parse_element(c, &p->val));
-        reskip_any_whitespace(c);
+        reskip_any_whitespace_or_comments(c);
         // Check needed here because the reskip_element() call above is actually
         // a little too greedy when the element type is number/true/false/null.
         if (**c != ',' && **c != '}') {
@@ -574,7 +634,7 @@ static jg_ret parse_element(
     char const * * c,
     struct jg_val_in * v
 ) {
-    reskip_any_whitespace(c);
+    reskip_any_whitespace_or_comments(c);
     switch (**c) {
     case '"':
         return parse_string(c, v);
@@ -603,12 +663,13 @@ static jg_ret parse_root(
     jg_t * jg
 ) {
     jg->json_cur = jg->json_text;
-    skip_any_whitespace(&jg->json_cur, jg->json_over);
+    skip_any_whitespace_or_comments(&jg->json_cur, jg->json_over);
+    char const * const json_root = jg->json_cur;
     switch (*jg->json_cur) {
     case '"':
         // Make sure the JSON text root contains a complete string...
         JG_GUARD(skip_string(&jg->json_cur, jg->json_over));
-        jg->json_cur = jg->json_text;
+        jg->json_cur = json_root;
         // ...because parse_string() doesn't check jg->json_over.
         JG_GUARD(parse_string(&jg->json_cur, &jg->root_in));
         break;
@@ -619,7 +680,7 @@ static jg_ret parse_root(
     case '[':
         // make sure the JSON text root contains a complete array...
         JG_GUARD(skip_array(&jg->json_cur, jg->json_over));
-        jg->json_cur = jg->json_text;
+        jg->json_cur = json_root;
         // ...because parse_array() doesn't check jg->json_over.
         JG_GUARD(parse_array(&jg->json_cur, &jg->root_in));
         break;
@@ -635,14 +696,14 @@ static jg_ret parse_root(
     case '{':
         // make sure the JSON text root contains a complete object...
         JG_GUARD(skip_object(&jg->json_cur, jg->json_over));
-        jg->json_cur = jg->json_text;
+        jg->json_cur = json_root;
         // ...because parse_array() doesn't check jg->json_over.
         JG_GUARD(parse_object(&jg->json_cur, &jg->root_in));
         break;
     default:
         return JG_E_PARSE_INVALID_TYPE;
     }
-    skip_any_whitespace(&jg->json_cur, jg->json_over);
+    skip_any_whitespace_or_comments(&jg->json_cur, jg->json_over);
     if (jg->json_cur < jg->json_over) {
         return JG_E_PARSE_ROOT_SURPLUS;
     }

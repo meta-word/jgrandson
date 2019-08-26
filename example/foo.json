@@ -1,8 +1,15 @@
+# Even though the JSON standard doesn't allow comments, the Jgrandson author
+# believes that commenting should always be possible, no matter the language.
 {
-  "strings?": ["Is\u0000超poor", "yet valid JSON", "\uD834\uDD1E？\n", true],
+  "strings?": [
+    "Is\u0000超poor", // Jgrandson ignores escaped NULL bytes (\u0000).
+	"yet valid JSON",
+	"\uD834\uDD1E？\n", // musical symbol G CLEF (U+1D11E) as surrogate pair
+	true # mischievous array element of dissonant type
+  ],
   "I am a 🔑": {
     "id": 18446744073709551614,
-    "размер": 9876543210,
+    "размер" /* Russian, I believe */: 9876543210,
     "short_flo": 0.089,
     "long_flo": -5e+3
   }
