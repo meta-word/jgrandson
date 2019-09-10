@@ -1,13 +1,25 @@
 # Jgrandson
 
-Jgrandson is a JSON parser and generator for the C language with a convenient getter/setter API.
+Jgrandson is a JSON parser and generator for the C language with a convenient
+getter/setter API.
 
-* Modern API (C11), fully compliant with the current version of the JSON standard (as of August 2019: [RFC 8259](https://tools.ietf.org/html/rfc8259)), except that Jgrandson also tolerates comments: `/* C-ish */`, `// C++-ish`, and `# Python-ish`
-* Getter and setter functions for every common C type, each available in 3 forms: for root, array, and object elements—no need to cast!
-* Extensive range of getter options customizable per function call through convenient optional arg struct type signatures, allowing custom boundary checking, error message contexts, and more
-* Unique error codes, informative error strings, and inclusion of highlighted parse error contexts
-* Feature-complete optional args giving the caller full control over escaping/unescaping of unicode and control characters, usage of caller/callee-provided buffers, (non-)null-termination of strings, and whitespace generation
-* Complete support for default key-value pairs: ideal for configuration file parsing
+* Modern API (C11), fully compliant with the current version of the JSON
+standard (as of August 2019: [RFC 8259](https://tools.ietf.org/html/rfc8259)),
+except that Jgrandson also tolerates comments: `/* C-ish */`, `// C++-ish`, and
+`# Python-ish`
+* Getter and setter functions for every common C type, each available in 3
+forms: for root, array, and object elements—no need to cast!
+* Extensive range of getter options customizable per function call through
+convenient optional arg struct type signatures, allowing custom boundary
+checking, error message contexts, and more
+* Unique error codes, informative error strings, and inclusion of highlighted
+parse error contexts
+* Feature-complete optional args giving the caller full control over
+escaping/unescaping of unicode and control characters, usage of
+caller/callee-provided buffers, (non-)null-termination of strings, and
+whitespace generation
+* Complete support for default key-value pairs: ideal for configuration file
+parsing
 
 ## Table of contents
 
@@ -22,7 +34,8 @@ Jgrandson is a JSON parser and generator for the C language with a convenient ge
 
 ## Installation
 
-Jgrandson has no external dependencies; so on Linux, with a fairly recent version of GCC installed, something like this should work:
+Jgrandson has no external dependencies; so on Linux, with a fairly recent
+version of GCC installed, something like this should work:
 
     git clone https://github.com/wbudd/jgrandson.git
     cd jgrandson
@@ -33,26 +46,45 @@ On other platforms the Makefile will probably need some simple editing.
 
 ## Usage
 
-The Jgrandson API consists exactly of the entire [jgrandson.h](https://github.com/wbudd/jgrandson/blob/master/src/jgrandson.h) header file, so see the many function definitions and comments contained therein for usage details not (yet) covered by this README.
+The Jgrandson API consists exactly of the entire
+[jgrandson.h](https://github.com/wbudd/jgrandson/blob/master/src/jgrandson.h)
+header file, so see the many function definitions and comments contained therein
+for usage details not (yet) covered by this README.
 
 ### Sessions
 
-A Jgrandson session is started by calling `jg_init()`, and terminated by calling `jg_free()`. During one such session Jgrandson supports either of the following two mutually exclusive workflows:
+A Jgrandson session is started by calling `jg_init()`, and terminated by calling
+`jg_free()`. During one such session Jgrandson supports either of the following
+two mutually exclusive workflows:
 
-1) A single call to a `jg_parse_...()` function, followed by one or more getter calls of the form `jg_[root|arr|obj]_get_...()`.
-2) One or more setter calls of the form `jg_[root|arr|obj]_set_...()`, followed by a single call to a `jg_generate_...()` function.
+1) A single call to a `jg_parse_...()` function, followed by one or more getter
+calls of the form `jg_[root|arr|obj]_get_...()`.
+2) One or more setter calls of the form `jg_[root|arr|obj]_set_...()`, followed
+by a single call to a `jg_generate_...()` function.
 
-No state can be shared between these two workflows. While `jg_reinit()` can be used to switch from one to the other, doing so is functionally equivalent to calling `jg_free()` followed by `jg_init()`.
+No state can be shared between these two workflows. While `jg_reinit()` can be
+used to switch from one to the other, doing so is functionally equivalent to
+calling `jg_free()` followed by `jg_init()`.
 
 ### Error handling
 
-Every non-void Jgrandson function other than `jg_init()` returns the type [jg_ret](https://github.com/wbudd/jgrandson/blob/master/src/jgrandson.h), which is an `enum` that can equal `JG_OK` (zero) or an `JG_E_...` error value (greater than zero).
+Every non-void Jgrandson function other than `jg_init()` returns the type
+[jg_ret](https://github.com/wbudd/jgrandson/blob/master/src/jgrandson.h), which
+is an `enum` that can equal `JG_OK` (zero) or an `JG_E_...` error value (greater
+than zero).
 
-To obtain an error string associated with the last returned `jg_ret` error value, call `jg_get_err_str()`. The returned string should be treated read-only/`const`, and may be `free()`d by Jgrandson during a subsequent call to `jg_get_err_str()` or `jg_free()`.
+To obtain an error string associated with the last returned `jg_ret` error
+value, call `jg_get_err_str()`. The returned string should be treated
+read-only/`const`, and may be `free()`d by Jgrandson during a subsequent call to
+`jg_get_err_str()` or `jg_free()`.
 
 ## Example
 
-To get started quickly, a self-contained example may be helpful. If so, consider the following [foo.c](https://github.com/wbudd/jgrandson/blob/master/example/foo.c), which should be compilable with something like `gcc -Wall -Wextra -std=c11 -ljgrandson foo.c`:
+To get started quickly, a self-contained example may be helpful. If so, consider
+the following
+[foo.c](https://github.com/wbudd/jgrandson/blob/master/example/foo.c), which
+should be compilable with something like
+`gcc -Wall -Wextra -std=c11 -ljgrandson foo.c`:
 ```C
 #include <jgrandson.h>
 #include <uchar.h> // Optional: enable unicode string literals (C11)
@@ -80,10 +112,11 @@ int main(void) {
     return ret;
 }
 ```
-Now let's assume the existence of some silly JSON file [foo.json](https://github.com/wbudd/jgrandson/blob/master/example/foo.json):
+Now let's assume the existence of some silly JSON file
+[foo.json](https://github.com/wbudd/jgrandson/blob/master/example/foo.json):
 
     # Even though the JSON standard doesn't allow comments, the Jgrandson author
-    # believes that commenting should always be possible, no matter the language.
+    # believes that commenting should always be possible no matter the language.
     {
       "strings?": [
         "Is\u0000超poor", // Jgrandson ignores escaped NULL bytes (\u0000).
@@ -203,7 +236,8 @@ int foo_parse_json(jg_t * jg) {
     return 0;
 }
 ```
-Finally, let's generate a new JSON text from the obtained JSON data, and print the result with `foo_generate_json()`:
+Finally, let's generate a new JSON text from the obtained JSON data, and print
+the result with `foo_generate_json()`:
 ```C
 int foo_generate_json(jg_t * jg) {
     jg_obj_set_t * root_obj = NULL; // Note: ..._set_t differs from ..._get_t
@@ -237,17 +271,23 @@ int foo_generate_json(jg_t * jg) {
     return 0;
 }
 ```
-For "real-world" examples of Jgrandson usage, see [RingSocket](https://github.com/wbudd/ringsocket/blob/master/src/rs_conf.c) and [Realitree](https://github.com/wbudd/realitree/blob/master/realitree_ringsocket/src/rt_storage.c).
+For "real-world" examples of Jgrandson usage, see
+[RingSocket](https://github.com/wbudd/ringsocket/blob/master/src/rs_conf.c) and
+[Realitree](https://github.com/wbudd/realitree/blob/master/realitree_ringsocket/src/rt_storage.c).
 
 ## Todo
 * Create a test suite to test the many combinations of possible args/options.
-* Implement optional args for floating point getters similar to those of integer type getters - requires *correct* floating comparisons.
+* Implement optional args for floating point getters similar to those of integer
+type getters - requires *correct* floating comparisons.
 
 ## Contributing
-Pull requests and other contributions are always welcome! License: [MIT](https://github.com/wbudd/jgrandson/blob/master/LICENSE).
+Pull requests and other contributions are always welcome! License:
+[MIT](https://github.com/wbudd/jgrandson/blob/master/LICENSE).
 
 ## Email me
-Feel free to send me email at the address below, *especially* if you might be interested in offering me employment or contractual work. Based in Osaka, Japan; but also happy to work remotely.
+Feel free to send me email at the address below, *especially* if you might be
+interested in offering me employment or contractual work. Based in Osaka, Japan;
+but also happy to work remotely.
 
            _               _               _     _                   
           | |             | |             | |   | |                  
@@ -255,4 +295,4 @@ Feel free to send me email at the address below, *especially* if you might be in
     | | | |  _ \    | | | |  _ \| | | |/ _  |/ _  | / ___) _ \|    \ 
     | | | | |_) ) @ | | | | |_) ) |_| ( (_| ( (_| |( (__| |_| | | | |
      \___/|____/     \___/|____/|____/ \____|\____(_)____)___/|_|_|_|
-（日本語能力試験N1を取得／永住者の在留資格あり）
+（2010年に日本語能力試験N1に合格／2017年に日本永住権を取得）
