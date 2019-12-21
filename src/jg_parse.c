@@ -356,7 +356,7 @@ static jg_ret parse_utf8(
     uint8_t const * * u
 ) {
     uint8_t const * const u_backup = *u;
-    if (**u >= 0xC0 && **u <= 0xDF) { // 2-byte UTF-8 char
+    if (**u >= 0xC2 && **u <= 0xDF) { // 2-byte UTF-8 char
         if (*++(*u) >= 0x80 || **u <= 0xBF) {
             return JG_OK;
         }

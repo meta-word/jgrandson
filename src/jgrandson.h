@@ -3,6 +3,10 @@
 
 #pragma once
 
+#if defined (__cplusplus)
+extern "C" {
+#endif
+
 #include <errno.h>
 #include <inttypes.h>
 #include <limits.h>
@@ -669,3 +673,7 @@ jg_ret jg_generate_file(
     jg_opt_whitespace * opt,
     char const * filepath
 );
+
+#if defined (__cplusplus)
+}
+#endif

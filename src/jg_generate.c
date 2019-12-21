@@ -178,13 +178,12 @@ jg_ret jg_generate_callerstr(
     jg_t * jg,
     jg_opt_whitespace * opt,
     char * json_text,
-    size_t * byte_c
+    size_t * _byte_c
 ) {
     if (jg->state != JG_STATE_SET && jg->state != JG_STATE_GENERATE) {
         return jg->ret = JG_E_STATE_NOT_GENERATE;
     }
     jg->state = JG_STATE_GENERATE;
-    *byte_c = 0;
     struct jg_opt_whitespace defa = {
         .indent = (size_t []){2},
         .indent_is_tab = false,
@@ -197,9 +196,16 @@ jg_ret jg_generate_callerstr(
     } else if (!opt->indent) {
         opt->indent = defa.indent;
     }
-    generate_json_text(&jg->root_out, json_text, byte_c, (size_t []){0}, opt);
+    size_t byte_c = 0;
+    generate_json_text(&jg->root_out, json_text, &byte_c, (size_t []){0}, opt);
     if (!opt->no_newline_before_eof) {
-        json_text[*byte_c++] = '\n';
+        if (json_text) {
+            json_text[byte_c] = '\n';
+        }
+        byte_c++;
+    }
+    if (_byte_c) {
+        *_byte_c = byte_c;
     }
     return JG_OK;
 }
