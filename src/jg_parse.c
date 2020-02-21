@@ -766,7 +766,11 @@ jg_ret jg_parse_file(
     }
     size_t byte_c = 0;
     {
+#if defined(_WIN32) || defined(_WIN64)
+        __int64 size = _ftelli64(f);
+#else
         off_t size = ftello(f);
+#endif
         if (size < 0) {
             jg->err_val.errn = errno;
             return jg->ret = JG_E_ERRNO_FTELLO;
