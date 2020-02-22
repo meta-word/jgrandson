@@ -170,8 +170,10 @@ static char const * get_errno_str(
     jg_t * jg
 ) {
 #if defined(_WIN32) || defined(_WIN64)
-    // TODO: figure out what Window's equivalent to strerror_l() is.
-    char* errno_str = strerror(jg->err_val.errn);
+    char errno_str[128] = {0};
+    if (strerror_s(errno_str, sizeof(errno_str), jg->err_val.errn)) {
+        strcpy(errno_str, "Unknown error");
+    }
 #else
     // Retrieve and append the errno's string representation
     locale_t loc = newlocale(LC_ALL, "", (locale_t) 0);
@@ -182,7 +184,7 @@ static char const * get_errno_str(
     char * errno_str = strerror_l(jg->err_val.errn, loc);
     freelocale(loc);
 #endif
-    char const* static_err_str = err_strs[jg->ret];
+    char const * static_err_str = err_strs[jg->ret];
     char * err_str = malloc(strlen(static_err_str) + strlen(errno_str) + 1);
     if (!err_str) {
         return jg->static_err_str = err_strs[jg->ret = JG_E_MALLOC];

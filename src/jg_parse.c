@@ -760,7 +760,11 @@ jg_ret jg_parse_file(
         jg->err_val.errn = errno;
         return jg->ret = JG_E_ERRNO_FOPEN;
     }
+#if defined(_WIN32) || defined(_WIN64)
+    if (_fseeki64(f, 0, SEEK_END) == -1) {
+#else
     if (fseeko(f, 0, SEEK_END) == -1) {
+#endif
         jg->err_val.errn = errno;
         return jg->ret = JG_E_ERRNO_FSEEKO;
     }
