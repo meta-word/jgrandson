@@ -755,7 +755,7 @@ jg_ret jg_parse_file(
         return jg->ret = JG_E_STATE_NOT_PARSE;
     }
     jg->state = JG_STATE_PARSE;
-    FILE * f = fopen(filepath, "r");
+    FILE * f = fopen(filepath, "rb");
     if (!f) {
         jg->err_val.errn = errno;
         return jg->ret = JG_E_ERRNO_FOPEN;
@@ -783,13 +783,13 @@ jg_ret jg_parse_file(
     }
     rewind(f);
     jg->json_text = malloc(byte_c + 1);
+    if (!jg->json_text) {
+        return jg->ret = JG_E_MALLOC;
+    }
     // Append a newline instead of a null-terminator. The parse functions do not
     // expect a null-terminator, and having a final whitespace char can help
     // avoid an unnecessary malloc() edge case in jg_root_get_<number_type>().
     jg->json_text[byte_c] = '\n';
-    if (!jg->json_text) {
-        return jg->ret = JG_E_MALLOC;
-    }
     if (fread(jg->json_text, 1, byte_c, f) != byte_c) {
         free(jg->json_text);
         return jg->ret = JG_E_FREAD;

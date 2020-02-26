@@ -222,7 +222,7 @@ jg_ret jg_generate_file(
     char * json_text = NULL;
     size_t byte_c = 0;
     JG_GUARD(jg_generate_str(jg, opt, &json_text, &byte_c));
-    FILE * f = fopen(filepath, "w");
+    FILE * f = fopen(filepath, "wb");
     if (!f) {
         jg->err_val.errn = errno;
         return jg->ret = JG_E_ERRNO_FOPEN;

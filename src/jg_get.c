@@ -243,7 +243,9 @@ jg_ret jg_root_get_arr(
             opt->max_c_reason, opt->min_c, opt->max_c));
     }
     *v = jg->root_in.arr;
-    *elem_c = jg->root_in.arr->elem_c;
+    if (elem_c) {
+        *elem_c = jg->root_in.arr->elem_c;
+    }
     return jg->ret = JG_OK;
 }
 
@@ -264,7 +266,9 @@ jg_ret jg_arr_get_arr(
             opt->max_c_reason, opt->min_c, opt->max_c));
     }
     *v = child->arr;
-    *elem_c = child->arr->elem_c;
+    if (elem_c) {
+        *elem_c = child->arr->elem_c;
+    }
     return jg->ret = JG_OK;
 }
 
@@ -285,7 +289,9 @@ jg_ret jg_obj_get_arr(
             opt->max_c_reason, opt->min_c, opt->max_c));
     }
     *v = child->arr;
-    *elem_c = child->arr->elem_c;
+    if (elem_c) {
+        *elem_c = child->arr->elem_c;
+    }
     return jg->ret = JG_OK;
 }
 
