@@ -403,7 +403,7 @@ static jg_ret parse_string(
     // *c assumed to point to the opening quotation mark.
     v->json = ++(*c);
     for (;; (*c)++) {
-        if (**c < 0) {
+        if ((signed char) **c < 0) {
             JG_GUARD(parse_utf8((uint8_t const * *) c));
             continue;
         }
