@@ -2,8 +2,8 @@
 # Copyright © 2019 William Budd
 
 NAME = libjgrandson
-VMAJOR = 0
-VMINOR = 4
+VMAJOR = 1
+VMINOR = 0
 SONAME_VNONE = $(NAME).so
 SONAME_VSHORT = $(SONAME_VNONE).$(VMAJOR)
 SONAME_VLONG = $(SONAME_VSHORT).$(VMINOR)

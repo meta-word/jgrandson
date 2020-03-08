@@ -20,6 +20,7 @@ caller/callee-provided buffers, (non-)null-termination of strings, and
 whitespace generation
 * Complete support for default key-value pairs: ideal for configuration file
 parsing
+* Cross-platform: tested on various architectures and operating systems
 
 ## Table of contents
 
