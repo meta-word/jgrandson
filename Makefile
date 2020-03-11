@@ -7,6 +7,7 @@ VMINOR = 0
 SONAME_VNONE = $(NAME).so
 SONAME_VSHORT = $(SONAME_VNONE).$(VMAJOR)
 SONAME_VLONG = $(SONAME_VSHORT).$(VMINOR)
+ANAME = $(NAME).a
 NAME_PREFIX = jg_
 SYSTEM_HEADER = jgrandson.h
 
@@ -14,11 +15,13 @@ INCLUDE_DIR = /usr/include
 DLL_DIR = /usr/lib
 
 CC = gcc
+AR = ar
 CFLAGS = -Wall -Wextra -Wpedantic -std=c11
 CFLAGS_DLL = -fpic
 CFLAGS_OPTIM = -O3 -flto -fuse-linker-plugin
 LFLAGS_DLL = -shared -Wl,-z,relro,-z,now,-soname,$(SONAME_VSHORT)
 LFLAGS_OPTIM = -flto -fuse-linker-plugin -fuse-ld=gold
+ARFLAGS = rcs
 
 SRC_DIR = src
 SRC_PATHS := $(wildcard $(SRC_DIR)/$(NAME_PREFIX)*.c)
@@ -28,8 +31,8 @@ OBJ_DIR = .objects
 OBJ_NAMES = $(SRC_NAMES:.c=.o)
 OBJ_PATHS = $(addprefix $(OBJ_DIR)/, $(OBJ_NAMES))
 
-.PHONY: optimized
-optimized: $(SONAME_VLONG)
+.PHONY: shared
+shared: $(SONAME_VLONG)
 
 $(SONAME_VLONG): $(OBJ_PATHS)
 	$(CC) $(LFLAGS_DLL) $(LFLAGS_OPTIM) $(OBJ_PATHS) -o $(SONAME_VLONG)
@@ -40,9 +43,15 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
 $(OBJ_DIR):
 	mkdir $(OBJ_DIR)
 
+.PHONY: static
+static: $(ANAME)
+
+$(ANAME): $(OBJ_PATHS)
+	$(AR) $(ARFLAGS) $(ANAME) $(OBJ_PATHS)
+
 .PHONY: clean
 clean:
-	rm -rf $(SONAME_VLONG) $(OBJ_DIR)
+	rm -rf $(SONAME_VLONG) $(ANAME) $(OBJ_DIR)
 
 .PHONY: install
 install:
