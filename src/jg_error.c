@@ -174,9 +174,12 @@ static char const * get_errno_str(
     if (strerror_s(errno_str, sizeof(errno_str), jg->err_val.errn)) {
         strcpy(errno_str, "Unknown error");
     }
+#elif defined(__APPLE__)
+    // Not thread-safe, but I can't any variant for MacOS that is (WTF Apple).
+    char * errno_str = strerror(jg->err_val.errn);
 #else
     // Retrieve and append the errno's string representation
-    locale_t loc = newlocale(LC_ALL, "", (locale_t) 0);
+    locale_t loc = newlocale(LC_MESSAGES_MASK, "", (locale_t) 0);
     if (loc == (locale_t) 0) {
         return jg->static_err_str = err_strs[jg->ret = JG_E_NEWLOCALE];
     }
