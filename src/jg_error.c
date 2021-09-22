@@ -16,114 +16,115 @@
 
 // The indices to err_strs match the enum values of jg_ret
 static char const * err_strs[] = {
-/*00*/ "Success (no error occurred)",
-       // wrong state errors
-/*01*/ "jg_parse_...() JSON parse functions can only be called when Jgrandson "
-       "is in its initial state (i.e., after jg_init() or jg_reinit()). "
-       JG_REINIT_MSG,
-/*02*/ "jg_[root|arr|obj]_get_...() getter functions can only be called after "
-       "a JSON text was parsed with a jg_parse_...() function. " JG_REINIT_MSG,
-/*03*/ "jg_[root|arr|obj]_set_...() setter functions can only be called when "
-       "Jgrandson is in its initial state (i.e., after jg_init() or "
-       "jg_reinit()), or after one or more previous successful setter function "
-       "calls. " JG_REINIT_MSG,
-/*04*/ "jg_generate_...() JSON generator functions can only be called after at "
-       "least one successful jg_[root|arr|obj]_set_...() setter function call "
-       "was made. " JG_REINIT_MSG,
-       // setter errors
-/*05*/ "Jgrandson does not permit setting the root JSON value more than once. "
-        JG_REINIT_MSG,
-/*06*/ "The 2nd argument to jg_arr_set_...() must be a JSON array type "
-       "(i.e., a jg_arr_set_t pointer).",
-/*07*/ "The 2nd argument to jg_obj_set_...() must be a JSON object type "
-       "(i.e., a jg_obj_set_t pointer).",
-/*08*/ "Jgrandson does not permit setting a duplicate key in the same object.",
-       // external errors without errno
-/*09*/ "Unsuccessful malloc()",
-/*10*/ "Unsuccessful calloc()",
-/*11*/ "Unsuccessful realloc()",
-/*12*/ "Unsuccessful vsprintf()",
-/*13*/ "Unsuccessful vsnprintf()",
-/*14*/ "Unsuccessful newlocale()",
-/*15*/ "Unsuccessful fread()",
-/*16*/ "Unsuccessful fwrite()",
-       // external errors with errno
-/*17*/ "Unsuccessful fopen(): ",
-/*18*/ "Unsuccessful fclose(): ",
-/*19*/ "Unsuccessful fseeko(..., SEEK_END): ",
-/*20*/ "Unsuccessful ftello(): ",
-       // parsing errors (with JSON text context)
-/*21*/ "Invalid JSON type",
-/*22*/ "Unterminated string: closing double-quote ('\"') not found",
-/*23*/ "Unterminated array: closing square bracket (']') not found",
-/*24*/ "Unterminated object: closing curly brace ('}') not found",
-/*25*/ "JSON type starting with an \"f\" does not spell \"false\" as expected",
-/*26*/ "JSON type starting with a \"t\" does not spell \"true\" as expected",
-/*27*/ "JSON type starting with an \"n\" does not spell \"null\" as expected",
-/*28*/ "A minus sign must be followed by a digit",
-/*29*/ "A number starting with a zero may only consist of multiple characters "
-       "if its 2nd character is a decimal point",
-/*30*/ "Number contains an invalid character",
-/*31*/ "Numbers must not contain multiple decimal points",
-/*32*/ "The exponent part of a number following an \"e\" or \"E\" must contain "
-       "one or more digits, the first of which may optionally be preceded by a "
-       "a single \"+\" or \"-\" sign only",
-/*33*/ "Invalid character in the exponent part of a number",
-/*34*/ "Jgrandson does not support parsing numbers with billions of digits",
-/*35*/ "String contains invalid UTF-8 byte sequence",
-/*36*/ "Control characters (U+0000 through U+001F) in strings must be escaped",
-/*37*/ "String contains a backslash escape character not followed by a "
-        "'\\', '/', ' ', '\"', 'b', 'f', 'n', 'r', 't', or 'u'",
-/*38*/ "String contains an invalid hexadecimal UTF-16 code point sequence "
-       "following a \"\\u\" escape sequence",
-/*39*/ "String contains an escaped UTF-16 low surrogate (\\uDC00 through "
-       "\\uDFFF) not preceded by a UTF-16 high surrogate (\\uD800 through "
-       "\\uDBFF)",
-/*40*/ "String contains an escaped UTF-16 high surrogate (\\uD800 through "
-       "\\uDBFF) not followed by a UTF-16 low surrogate (\\uDC00 through "
-       "\\uDFFF).",
-/*41*/ "Jgrandson does not support parsing string sizes greater than 4GB",
-/*42*/ "Array elements must be followed by a comma (',') or a closing bracket "
-       "(']')",
-/*43*/ "The key of a key-value pair must be of type string "
-       "(i.e., keys must be enclosed in quotation marks)",
-/*44*/ "The key and value of a key-value pair must be separated by a colon "
-       "(':')",
-/*45*/ "Key-value pairs must be followed by a comma (',') or a closing brace "
-       "('}')",
-/*46*/ "Jgrandson does not allow duplicate keys within the same object",
-/*47*/ "A JSON text must contain only one root value (see rfc8259)",
-       // getter errors (with JSON text context)
-/*48*/ "Expected JSON type \"null\"",
-/*49*/ "Expected JSON type \"boolean\"",
-/*50*/ "Expected JSON type \"number\"",
-/*51*/ "Expected JSON type \"string\"",
-/*52*/ "Expected JSON type \"array\"",
-/*53*/ "Expected JSON type \"object\"",
-/*54*/ "Expected an array long enough to have an element with index %zu "
-       "(counting from zero)",
-/*55*/ "Expected an array with at least %zu elements",
-/*56*/ "Expected an array with at most %zu elements",
-/*57*/ "Expected an object with a key named",
-/*58*/ "Expected an object with at least %zu key-value pairs",
-/*59*/ "Expected an object with at most %zu key-value pairs",
-/*60*/ "Expected a string consisting of at least %zu bytes "
-       "(excluding null-terminator)",
-/*61*/ "Expected a string consisting of no more than %zu bytes "
-       "(excluding null-terminator)",
-/*62*/ "Expected a string consisting of at least %zu UTF-8 characters",
-/*63*/ "Expected a string consisting of no more than %zu UTF-8 characters",
-/*64*/ "Expected an integer "
-       "(i.e., a number without decimal point or exponent part)",
-/*65*/ "Expected an unsigned integer",
-/*66*/ "Expected a signed integer no less than %" PRIiMAX,
-/*67*/ "Expected a signed integer no greater than %" PRIiMAX,
-/*68*/ "Expected an unsigned integer no less than %" PRIuMAX,
-/*69*/ "Expected an unsigned integer no greater than %" PRIuMAX,
-/*70*/ "Expected a number that can be converted to a floating point type",
-/*71*/ "Expected a number within the range representable by type \"float",
-/*72*/ "Expected a number within the range representable by type \"double",
-/*73*/ "Expected a number within the range representable by type \"long double"
+    /*00*/ "Success (no error occurred)",
+           // wrong state errors
+    /*01*/ "jg_parse_...() JSON parse functions can only be called when Jgrandson "
+           "is in its initial state (i.e., after jg_init() or jg_reinit()). "
+           JG_REINIT_MSG,
+    /*02*/ "jg_[root|arr|obj]_get_...() getter functions can only be called after "
+           "a JSON text was parsed with a jg_parse_...() function. " JG_REINIT_MSG,
+    /*03*/ "jg_[root|arr|obj]_set_...() setter functions can only be called when "
+           "Jgrandson is in its initial state (i.e., after jg_init() or "
+           "jg_reinit()), or after one or more previous successful setter function "
+           "calls. " JG_REINIT_MSG,
+    /*04*/ "jg_generate_...() JSON generator functions can only be called after at "
+           "least one successful jg_[root|arr|obj]_set_...() setter function call "
+           "was made. " JG_REINIT_MSG,
+    // setter errors
+    /*05*/ "Jgrandson does not permit setting the root JSON value more than once. "
+            JG_REINIT_MSG,
+    /*06*/ "The 2nd argument to jg_arr_set_...() must be a JSON array type "
+           "(i.e., a jg_arr_set_t pointer).",
+    /*07*/ "The 2nd argument to jg_obj_set_...() must be a JSON object type "
+           "(i.e., a jg_obj_set_t pointer).",
+    /*08*/ "Jgrandson does not permit setting a duplicate key in the same object.",
+    // external errors without errno
+    /*09*/ "Unsuccessful malloc()",
+    /*10*/ "Unsuccessful calloc()",
+    /*11*/ "Unsuccessful realloc()",
+    /*12*/ "Unsuccessful vsprintf()",
+    /*13*/ "Unsuccessful vsnprintf()",
+    /*14*/ "Unsuccessful newlocale()",
+    /*15*/ "Unsuccessful fread()",
+    /*16*/ "Unsuccessful fwrite()",
+    // external errors with errno
+    /*17*/ "Unsuccessful fopen(): ",
+    /*18*/ "Unsuccessful fclose(): ",
+    /*19*/ "Unsuccessful fseeko(..., SEEK_END): ",
+    /*20*/ "Unsuccessful ftello(): ",
+    // parsing errors (with JSON text context)
+    /*21*/ "Invalid JSON type",
+    /*22*/ "Unterminated string: closing double-quote ('\"') not found",
+    /*23*/ "Unterminated array: closing square bracket (']') not found",
+    /*24*/ "Unterminated object: closing curly brace ('}') not found",
+    /*25*/ "JSON type starting with an \"f\" does not spell \"false\" as expected",
+    /*26*/ "JSON type starting with a \"t\" does not spell \"true\" as expected",
+    /*27*/ "JSON type starting with an \"n\" does not spell \"null\" as expected",
+    /*28*/ "A minus sign must be followed by a digit",
+    /*29*/ "A number starting with a zero may only consist of multiple characters "
+           "if its 2nd character is a decimal point",
+    /*30*/ "Number contains an invalid character",
+    /*31*/ "Numbers must not contain multiple decimal points",
+    /*32*/ "The exponent part of a number following an \"e\" or \"E\" must contain "
+           "one or more digits, the first of which may optionally be preceded by a "
+           "a single \"+\" or \"-\" sign only",
+    /*33*/ "Invalid character in the exponent part of a number",
+    /*34*/ "Jgrandson does not support parsing numbers with billions of digits",
+    /*35*/ "String contains invalid UTF-8 byte sequence",
+    /*36*/ "Control characters (U+0000 through U+001F) in strings must be escaped",
+    /*37*/ "String contains a backslash escape character not followed by a "
+            "'\\', '/', ' ', '\"', 'b', 'f', 'n', 'r', 't', or 'u'",
+    /*38*/ "String contains an invalid hexadecimal UTF-16 code point sequence "
+           "following a \"\\u\" escape sequence",
+    /*39*/ "String contains an escaped UTF-16 low surrogate (\\uDC00 through "
+           "\\uDFFF) not preceded by a UTF-16 high surrogate (\\uD800 through "
+           "\\uDBFF)",
+    /*40*/ "String contains an escaped UTF-16 high surrogate (\\uD800 through "
+           "\\uDBFF) not followed by a UTF-16 low surrogate (\\uDC00 through "
+           "\\uDFFF).",
+    /*41*/ "Jgrandson does not support parsing string sizes greater than 4GB",
+    /*42*/ "Array elements must be followed by a comma (',') or a closing bracket "
+           "(']')",
+    /*43*/ "The key of a key-value pair must be of type string "
+           "(i.e., keys must be enclosed in quotation marks)",
+    /*44*/ "The key and value of a key-value pair must be separated by a colon "
+           "(':')",
+    /*45*/ "Key-value pairs must be followed by a comma (',') or a closing brace "
+           "('}')",
+    /*46*/ "Jgrandson does not allow duplicate keys within the same object",
+    /*47*/ "A JSON text must contain only one root value (see rfc8259)",
+    // getter errors (with JSON text context)
+    /*48*/ "Non-optional input pointer arguments must not be NULL",
+    /*49*/ "Expected JSON type \"null\"",
+    /*50*/ "Expected JSON type \"boolean\"",
+    /*51*/ "Expected JSON type \"number\"",
+    /*52*/ "Expected JSON type \"string\"",
+    /*53*/ "Expected JSON type \"array\"",
+    /*54*/ "Expected JSON type \"object\"",
+    /*55*/ "Expected an array long enough to have an element with index %zu "
+           "(counting from zero)",
+    /*56*/ "Expected an array with at least %zu elements",
+    /*57*/ "Expected an array with at most %zu elements",
+    /*58*/ "Expected an object with a key named",
+    /*59*/ "Expected an object with at least %zu key-value pairs",
+    /*60*/ "Expected an object with at most %zu key-value pairs",
+    /*61*/ "Expected a string consisting of at least %zu bytes "
+           "(excluding null-terminator)",
+    /*62*/ "Expected a string consisting of no more than %zu bytes "
+           "(excluding null-terminator)",
+    /*63*/ "Expected a string consisting of at least %zu UTF-8 characters",
+    /*64*/ "Expected a string consisting of no more than %zu UTF-8 characters",
+    /*65*/ "Expected an integer "
+           "(i.e., a number without decimal point or exponent part)",
+    /*66*/ "Expected an unsigned integer",
+    /*67*/ "Expected a signed integer no less than %" PRIiMAX,
+    /*68*/ "Expected a signed integer no greater than %" PRIiMAX,
+    /*69*/ "Expected an unsigned integer no less than %" PRIuMAX,
+    /*70*/ "Expected an unsigned integer no greater than %" PRIuMAX,
+    /*71*/ "Expected a number that can be converted to a floating point type",
+    /*72*/ "Expected a number within the range representable by type \"float",
+    /*73*/ "Expected a number within the range representable by type \"double",
+    /*74*/ "Expected a number within the range representable by type \"long double"
 };
 
 static jg_ret get_print_byte_c(
@@ -301,6 +302,7 @@ char const * jg_get_err_str(
     case JG_E_STATE_NOT_GET:
     case JG_E_STATE_NOT_SET:
     case JG_E_STATE_NOT_GENERATE:
+    case JG_E_GET_ARG_IS_NULL:
     case JG_E_SET_ROOT_ALREADY_SET:
     case JG_E_SET_NOT_ARR:
     case JG_E_SET_NOT_OBJ:

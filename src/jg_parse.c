@@ -755,11 +755,22 @@ jg_ret jg_parse_file(
         return jg->ret = JG_E_STATE_NOT_PARSE;
     }
     jg->state = JG_STATE_PARSE;
+#if defined(_WIN32) || defined(_WIN64)
+    wchar_t * wfilepath = str_to_wstr(filepath);
+    FILE * f = NULL;
+    errno_t e = _wfopen_s(&f, wfilepath, L"rb");
+    free(wfilepath);
+    if (e) {
+        jg->err_val.errn = (int) e;
+        return jg->ret = JG_E_ERRNO_FOPEN;
+    }
+#else
     FILE * f = fopen(filepath, "rb");
     if (!f) {
         jg->err_val.errn = errno;
         return jg->ret = JG_E_ERRNO_FOPEN;
     }
+#endif
 #if defined(_WIN32) || defined(_WIN64)
     if (_fseeki64(f, 0, SEEK_END) == -1) {
 #else

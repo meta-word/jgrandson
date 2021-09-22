@@ -3,9 +3,16 @@
 
 #include "jgrandson_internal.h"
 
+static jg_ret check_null_arg(
+    void const * arg
+) {
+    return arg ? JG_OK : JG_E_GET_ARG_IS_NULL;
+}
+
 static jg_ret check_state_get(
     jg_t * jg
 ) {
+    JG_GUARD(check_null_arg(jg));
     switch (jg->state) {
     case JG_STATE_PARSE:
         jg->state = JG_STATE_GET;
@@ -50,6 +57,7 @@ static jg_ret check_arr_index_over(
     struct jg_arr const * arr,
     size_t arr_i
 ) {
+    JG_GUARD(check_null_arg(arr));
     if (arr->elem_c <= arr_i) {
         jg->err_val.s = arr_i;
         jg->json_cur = arr->json;
@@ -65,6 +73,8 @@ static jg_ret obj_get_val_by_key(
     bool is_required,
     struct jg_val_in const * * val
 ) {
+    JG_GUARD(check_null_arg(obj));
+    JG_GUARD(check_null_arg(key));
     size_t byte_c = strlen(key);
     for (struct jg_pair const * p = obj->pairs; p < obj->pairs + obj->pair_c;
         p++) {
@@ -165,6 +175,7 @@ jg_ret jg_obj_get_bool(
         JG_GUARD(check_type(jg, child, JG_TYPE_BOOL));
         *v = child->bool_is_true;
     } else {
+        JG_GUARD(check_null_arg(defa));
         *v = *defa;
     }
     return jg->ret = JG_OK;
@@ -357,7 +368,7 @@ static jg_ret handle_obj_options(
         size_t byte_c = obj->pair_c * sizeof(char *);
         for (struct jg_pair const * p = obj->pairs;
             p < obj->pairs + obj->pair_c; p++) {
-            byte_c += p->key.byte_c + 1; // null-terminated key string extent
+            byte_c += p->key.byte_c + 1ULL; // null-terminated key string extent
         }
         *keys = calloc(byte_c, 1);
         if (!*keys) {
@@ -647,9 +658,10 @@ static jg_ret obj_get_str(
     struct jg_val_in const * child = NULL;
     JG_GUARD(obj_get_val_by_key(jg, obj, key, !opt || !opt->defa, &child));
     if (!child) {
-        // Use the provided default instead: opt must be non-NULL because
-        // otherwise the is_required arg to obj_get_val_by_key() would be true,
-        // meaning said function would not return JG_OK when no key was found.
+        // Use the provided default instead: opt and opt->defa must be non-NULL
+        // because otherwise the is_required arg to obj_get_val_by_key() would
+        // be true, meaning said function would not return JG_OK when no key was
+        // found.
         size_t byte_c = strlen(opt->defa);
         if (opt->byte_c) {
             *opt->byte_c = byte_c;
@@ -773,7 +785,8 @@ static jg_ret get_unsigned(
     return JG_OK;
 }
 
-#define _JG_STR_TO_INT(_max_type, _str_to_int_func, _type_min, _type_max) \
+#define _JG_STR_TO_INT( \
+    _type, _max_type, _str_to_int_func, _type_min, _type_max) \
 do { \
     _max_type n = 0; \
     if (opt) { \
@@ -784,7 +797,7 @@ do { \
         JG_GUARD((_str_to_int_func)(jg, str, NULL, NULL, (_type_min), \
             (_type_max), &n)); \
     } \
-    *v = n; \
+    *v = (_type) n; \
 } while (0)
 
 // This should be a NOP, but nonetheless undefine _ just in case; because
@@ -805,7 +818,7 @@ JG_ROOT_GET(_suf, _type) { \
     /* Annoying corner case: given that jg->json_text is not required to be */ \
     /* null-terminated, passing a root-level number type to strto(u)imax() */ \
     /* as-is would be at risk of buffer overflow. */ \
-    char * str = malloc(jg->root_in.byte_c + 1); \
+    char * str = malloc(jg->root_in.byte_c + 1ULL); \
     if (!str) { \
         return jg->ret = JG_E_MALLOC; \
     } \
@@ -842,11 +855,11 @@ JG_OBJ_GET(_suf, _type) { \
 
 #define JG_GET_FUNC_SIGNED(_suf, _type, _type_min, _type_max) \
     JG_GET_FUNC_INT(_suf, _type, \
-        JG_STR_TO_INT(intmax_t, get_signed, _type_min, _type_max))
+        JG_STR_TO_INT(_type, intmax_t, get_signed, _type_min, _type_max))
 
 #define JG_GET_FUNC_UNSIGNED(_suf, _type, _type_min, _type_max) \
     JG_GET_FUNC_INT(_suf, _type, \
-        JG_STR_TO_INT(uintmax_t, get_unsigned, _type_min, _type_max))
+        JG_STR_TO_INT(_type, uintmax_t, get_unsigned, _type_min, _type_max))
 
 JG_GET_FUNC_SIGNED(_int8, int8_t, INT8_MIN, INT8_MAX)
 JG_GET_FUNC_SIGNED(_char, char, CHAR_MIN, CHAR_MAX)
@@ -893,7 +906,7 @@ JG_ROOT_GET_FLO(_suf, _type) { \
     /* Annoying corner case: given that jg->json_text is not required to be */ \
     /* null-terminated, passing a root-level number type to strto(u)imax() */ \
     /* as-is would be at risk of buffer overflow. */ \
-    char * str = malloc(jg->root_in.byte_c + 1); \
+    char * str = malloc(jg->root_in.byte_c + 1ULL); \
     if (!str) { \
         return jg->ret = JG_E_MALLOC; \
     } \

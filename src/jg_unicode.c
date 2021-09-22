@@ -278,3 +278,14 @@ jg_ret unesc_str_and_json_str_are_equal(
     free(str);
     return JG_OK;
 }
+
+#if defined(_WIN32) || defined(_WIN64)
+wchar_t * str_to_wstr(
+    char const * str
+) { // The returned wstr must be free()d by the called after use.
+    int wchar_c = MultiByteToWideChar(CP_UTF8, 0, str, -1, NULL, 0);
+    wchar_t * wstr = malloc(wchar_c * sizeof(wchar_t)); // Includes space for ¥0
+    MultiByteToWideChar(CP_UTF8, 0, str, -1, wstr, wchar_c);
+    return wstr;
+}
+#endif
