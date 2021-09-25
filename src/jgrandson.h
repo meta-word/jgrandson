@@ -3,6 +3,10 @@
 
 #pragma once
 
+//##############################################################################
+//# C API ####### (See the bottom of this header for the inline C++ API) #######
+//##############################################################################
+
 #if defined (__cplusplus)
 extern "C" {
 #endif
@@ -678,5 +682,293 @@ jg_ret jg_generate_file(
 );
 
 #if defined (__cplusplus)
+} // End of extern "C"
+
+//##############################################################################
+//# C++ API ####################################################################
+//##############################################################################
+
+#include <filesystem>
+#include <functional>
+#include <fstream>
+#include <memory>
+#include <span>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
+using namespace std::placeholders;
+
+#ifdef _MSC_VER // If any version of Visual Studio
+#pragma warning(disable: 26812) // Ignore complaints about unscoped enum jg_ret
+#endif
+
+namespace jg {
+
+struct err : public std::runtime_error {
+    err(std::string const & what = std::string()) : std::runtime_error(what) {}
+};
+
+struct _Session {
+    inline _Session() {
+        jg = jg_init();
+        if (!jg) {
+            throw err("jg_init() returned a NULL pointer: out of memory?");
+        }
+    }
+
+    inline ~_Session() noexcept {
+        if (jg) {
+            jg_free(jg);
+        }
+    }
+
+    jg_t * jg{};
+};
+
+class Base {
+protected:
+    void guard(jg_ret ret) {
+        if (ret != JG_OK) {
+            throw err(jg_get_err_str(_s->jg, nullptr, nullptr));
+        }
+    }
+
+    template <typename Functor> inline auto get_json_type(Functor functor) {
+        jg_type type{};
+        guard(functor(&type));
+        return type;
+    }
+
+    template <typename Functor> inline auto get_bool(Functor functor) {
+        bool b{};
+        guard(functor(&b));
+        return b;
+    }
+
+    template <typename Functor> inline auto get_arr(
+        Functor functor,
+        size_t min_c = 0,
+        size_t max_c = 0,
+        std::string const& min_c_reason = std::string(),
+        std::string const& max_c_reason = std::string()
+    );
+
+    std::shared_ptr<jg::_Session const> _s{};
+};
+
+struct Root : Base {
+    inline Root() {
+        _s = std::make_shared<jg::_Session const>();
+    }
+
+    inline void parse_str(
+        std::string const & json_text
+    ) {
+        guard(jg_parse_str(_s->jg, json_text.c_str(), json_text.size()));
+    }
+
+    template <typename Type>
+    inline void parse_str(
+        std::span<Type> const & json_text
+    ) {
+       guard(jg_parse_str(_s->jg, reinterpret_cast<char const *>(&json_text[0]),
+            json_text.size_bytes()));
+    }
+
+    template <typename Type>
+    inline void parse_str(
+        std::vector<Type> const & json_text
+    ) {
+        guard(parse_str(std::span(json_text)));
+    }
+
+    inline void parse_file(
+        std::string const & filepath
+    ) {
+        guard(jg_parse_file(_s->jg, filepath.c_str()));
+    }
+
+    /*inline void parse_file(
+        std::filesystem::path const & filepath
+    ) {
+        size_t byte_c{};
+        try {
+            byte_c = std::filesystem::file_size(filepath);
+        } catch (std::filesystem::filesystem_error & e) {
+            throw err(
+                std::string("Failed to obtain JSON file size: ") + e.what());
+        }
+        std::vector<char> json_text(byte_c);
+        std::ifstream ifs(filepath, std::ios::binary);
+        if (!ifs) {
+            throw err("Failed to read JSON file via std::ifstream.");
+        }
+        ifs.read(&json_text[0], byte_c);
+        if (ifs.gcount() != byte_c) {
+            throw err("Number of bytes read via std::ifstream does not match "
+                "the file size reported by std::filesystem::file_size().");
+        }
+        parse_str(json_text);
+    }*/
+
+    inline auto get_json_type() {
+        return Base::get_json_type(
+            std::bind(jg_root_get_json_type, _s->jg, _1));
+    }
+    inline void get_null() {
+        guard(jg_root_get_null(_s->jg));
+    }
+    inline auto get_bool() {
+        return Base::get_bool(std::bind(jg_root_get_bool, _s->jg, _1));
+    }
+    template <typename... Args> inline auto get_arr(Args... args) {
+        return Base::get_arr(std::bind(jg_root_get_arr, _s->jg, _1, _2, _3),
+            args...);
+    }
+};
+
+class Container : protected Base {
+public:
+    inline size_t size() noexcept { return _elem_c; }
+    inline size_t index() noexcept { return _i; }
+    auto begin() const { return *this; }
+    auto end() const { return *this; }
+    auto operator * () const { return *this; }
+    bool operator != (Container & rhs) const { return _i < rhs._elem_c; }
+    auto & operator ++ () {
+        if (++_i >= _elem_c) {
+            throw err("Container incremented beyond its valid range.");
+        }
+        return *this;
+    }
+    auto & operator [] (size_t index) {
+        if (index >= _elem_c) {
+            throw err("Container received a subscription index beyond its "
+                "valid range.");
+        }
+        _i = index;
+        return *this;
+    }
+protected:
+    inline Container(
+        std::shared_ptr<jg::_Session const> s
+    ) noexcept {
+        _s = s; // Increment s.use_count
+    }
+
+    size_t _elem_c{};
+    size_t _i{};
+};
+
+class ArrGet : Container {
+public:
+    inline ArrGet(
+        std::shared_ptr<jg::_Session const> s,
+        jg_arr_get_t * arr,
+        size_t elem_c
+    ) noexcept : Container(s) {
+        _arr = arr;
+        _elem_c = elem_c;
+    }
+
+    inline auto get_json_type() {
+        return Base::get_json_type(
+            std::bind(jg_arr_get_json_type, _s->jg, _arr, _i, _1));
+    }
+    inline void get_null() {
+        guard(jg_arr_get_null(_s->jg, _arr, _i));
+    }
+    inline auto get_bool() {
+        return Base::get_bool(std::bind(jg_arr_get_bool, _s->jg, _arr, _i, _1));
+    }
+    template <typename... Args> inline auto get_arr(Args... args) {
+        return Base::get_arr(std::bind(jg_arr_get_arr, _s->jg, _arr, _i, _1, _2,
+            _3), args);
+    }
+private:
+    jg_arr_get_t * _arr{};
+};
+
+class ObjGet : Container {
+public:
+    inline ObjGet(
+        std::shared_ptr<jg::_Session const> s,
+        jg_obj_get_t * obj,
+        char const * * keys
+    ) noexcept : Container(s) {
+        _obj = obj;
+        _keys = keys;
+    }
+
+    /*auto& operator [] (std::string const& key) {
+        return *this;
+    }*/
+
+    inline auto get_json_type() {
+        return Base::get_json_type(
+            std::bind(jg_obj_get_json_type, _s->jg, _obj, _key, _1));
+    }
+    inline void get_null() {
+        guard(jg_obj_get_null(_s->jg, _obj, _key));
+    }
+    inline auto get_bool() {
+        return Base::get_bool(std::bind(jg_obj_get_bool, _s->jg, _obj, _key,
+            nullptr, _1));
+    }
+    inline auto get_bool(bool defa) {
+        return Base::get_bool(std::bind(jg_obj_get_bool, _s->jg, _obj, _key,
+            &defa, _1));
+    }
+    template <typename... Args> inline auto get_arr(Args... args) {
+        return Base::get_arr(std::bind(jg_obj_get_arr, _s->jg, _obj, _key, _1,
+            _2, _3), args);
+    }
+private:
+    jg_obj_get_t * _obj{};
+    char const * * _keys{};
+    char const * _key{};
+};
+
+/*class ArrSet : Base {
+public:
+    inline ArrSet(
+        std::shared_ptr<jg::_Session const> s,
+        jg_arr_set_t * arr
+    ) noexcept : Base(s) {
+        _arr = arr;
+    }
+private:
+    jg_arr_set_t * _arr{};
+};
+
+class ObjSet : Base {
+public:
+    inline ObjSet(
+        std::shared_ptr<jg::_Session const> s,
+        jg_obj_set_t * obj
+    ) noexcept : Base(s) {
+        _obj = obj;
+    }
+private:
+    jg_obj_set_t * _obj{};
+};*/
+
+template <typename Functor>
+inline auto Base::get_arr(
+    Functor functor,
+    size_t min_c,
+    size_t max_c,
+    std::string const & min_c_reason,
+    std::string const & max_c_reason
+) {
+    jg_opt_arr opt{min_c_reason.c_str(), max_c_reason.c_str(), min_c, max_c};
+    jg_arr_get_t * _arr{};
+    size_t elem_c{};
+    guard(functor(&opt, &_arr, &elem_c));
+    return ArrGet(_s, _arr, elem_c);
 }
+
+} // End of namespace jg
+
 #endif
