@@ -48,10 +48,10 @@ static char const * err_strs[] = {
 /*15*/ "Unsuccessful fread()",
 /*16*/ "Unsuccessful fwrite()",
 // external errors with errno
-/*17*/ "Unsuccessful fopen(): ",
-/*18*/ "Unsuccessful fclose(): ",
-/*19*/ "Unsuccessful fseeko(..., SEEK_END): ",
-/*20*/ "Unsuccessful ftello(): ",
+/*17*/ "Failed to open the given JSON file path: ",
+/*18*/ "Failed to fclose() the JSON file: ",
+/*19*/ "Failed to fseeko(..., SEEK_END) the JSON file: ",
+/*20*/ "Failed to ftello() the JSON file: ",
 // parsing errors (with JSON text context)
 /*21*/ "Invalid JSON type",
 /*22*/ "Unterminated string: closing double-quote ('\"') not found",

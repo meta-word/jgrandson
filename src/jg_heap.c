@@ -32,7 +32,7 @@ jg_ret set_custom_err_str(
     jg_t * jg,
     char const * custom_err_str
 ) {
-    if (!custom_err_str) {
+    if (!custom_err_str || *custom_err_str == '\0') {
         return JG_OK;
     }
     size_t byte_c = strlen(custom_err_str) + 1;
