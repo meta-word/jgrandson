@@ -16,7 +16,7 @@ struct {
     }; // C11 anonymous struct
 } foo = {0};
 
-int foo_parse_json(jg_t * jg) {
+static int foo_parse_json(jg_t * jg) {
     // Instead of parsing a file as a JSON text, Jgrandson also allows parsing
     // a string as JSON text with jg_parse_str() or jg_parse_callerstr().
     FOO_GUARD_JG(jg_parse_file(jg, "foo.json"));
@@ -99,13 +99,13 @@ int foo_parse_json(jg_t * jg) {
     // (although that may change in a future version). When getting from an
     // object, a default can be specified directly instead:
     FOO_GUARD_JG(jg_obj_get_float(jg, child_obj, "short_flo",
-        &(float){0.12345}, &foo.short_flo));
+        &(float){0.12345f}, &foo.short_flo));
     FOO_GUARD_JG(jg_obj_get_long_double(jg, child_obj, "long_flo",
         &(long double){-1.2345}, &foo.long_flo));
     return 0;
 }
 
-int foo_generate_json(jg_t * jg) {
+static int foo_generate_json(jg_t * jg) {
     jg_obj_set_t * root_obj = NULL; // Note: ..._set_t differs from ..._get_t
     FOO_GUARD_JG(jg_root_set_obj(jg, &root_obj));
 

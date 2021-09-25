@@ -148,7 +148,7 @@ struct {
 ```
 ...with a function named `foo_parse_json()`:
 ```C
-int foo_parse_json(jg_t * jg) {
+static int foo_parse_json(jg_t * jg) {
     // Instead of parsing a file as a JSON text, Jgrandson also allows parsing
     // a string as JSON text with jg_parse_str() or jg_parse_callerstr().
     FOO_GUARD_JG(jg_parse_file(jg, "foo.json"));
@@ -240,7 +240,7 @@ int foo_parse_json(jg_t * jg) {
 Finally, let's generate a new JSON text from the obtained JSON data, and print
 the result with `foo_generate_json()`:
 ```C
-int foo_generate_json(jg_t * jg) {
+static int foo_generate_json(jg_t * jg) {
     jg_obj_set_t * root_obj = NULL; // Note: ..._set_t differs from ..._get_t
     FOO_GUARD_JG(jg_root_set_obj(jg, &root_obj));
 

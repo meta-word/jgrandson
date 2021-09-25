@@ -7,3 +7,5 @@
 /.vs
 /Win32
 /x64
+/example/Win32
+/example/x64
