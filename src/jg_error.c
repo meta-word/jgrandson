@@ -157,7 +157,7 @@ jg_ret print_alloc_str(
     va_start(args, fmt);
     JG_GUARD(get_print_byte_c(jg, &byte_c, fmt, args));
     va_end(args);
-    *str = malloc(byte_c + 1);
+    *str = malloc(byte_c + 1ULL);
     if (!*str) {
         return jg->ret = JG_E_MALLOC;
     }

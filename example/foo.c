@@ -138,6 +138,12 @@ static int foo_generate_json(jg_t * jg) {
 }
 
 int main(void) {
+#if defined(_WIN32) || defined(_WIN64)
+    if (!SetConsoleOutputCP(CP_UTF8)) {
+        fprintf(stderr, "Failed to SetConsoleOutputCP(CP_UTF8).\n");
+        return EXIT_FAILURE;
+    }
+#endif
     // Initialize a Jgrandson session to obtain an opaque jg_t pointer. 
     jg_t * jg = jg_init(); // jg to be 1st arg to all following jg_...() calls
 

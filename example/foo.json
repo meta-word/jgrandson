@@ -2,7 +2,7 @@
 # believes that commenting should always be possible, no matter the language.
 {
   "strings?": [
-    "Is\u0000超poor", // Jgrandson ignores escaped NULL bytes (\u0000).
+  "Is\u0000超poor", // Jgrandson ignores escaped NULL bytes (\u0000).
 	"yet valid JSON",
 	"\uD834\uDD1E？\n", // musical symbol G CLEF (U+1D11E) as surrogate pair
 	true # mischievous array element of dissonant type

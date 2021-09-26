@@ -37,10 +37,11 @@ jg_ret set_custom_err_str(
     }
     size_t byte_c = strlen(custom_err_str) + 1;
     if (jg->custom_err_str) {
-        jg->custom_err_str = realloc(jg->custom_err_str, byte_c);
-        if (!jg->custom_err_str) {
+        void * custom_err_str = realloc(jg->custom_err_str, byte_c);
+        if (!custom_err_str) {
             return jg->ret = JG_E_REALLOC;
         }
+        jg->custom_err_str = custom_err_str;
     } else {
         jg->custom_err_str = malloc(byte_c);
         if (!jg->custom_err_str) {

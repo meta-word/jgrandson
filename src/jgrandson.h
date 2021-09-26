@@ -3,6 +3,18 @@
 
 #pragma once
 
+#if defined(_WIN32) || defined(_WIN64)
+#ifdef _MSC_VER // If any version of Visual Studio:
+#define _CRT_SECURE_NO_WARNINGS // No whining about decent Posix functions!
+#pragma warning(disable: 5105) // Microsoft complaining about its own winbase.h!
+#pragma warning(disable: 6011) // Also, Microsoft's...
+#pragma warning(disable: 6386) // static analysis game...
+#pragma warning(disable: 6387) // has a number of weaknesses.
+#endif
+#define WIN32_LEAN_AND_MEAN // Cut down on the amount of included cruft
+#include <windows.h>
+#endif
+
 //##############################################################################
 //# C API ####### (See the bottom of this header for the inline C++ API) #######
 //##############################################################################
@@ -688,6 +700,7 @@ jg_ret jg_generate_file(
 //# C++ API ####################################################################
 //##############################################################################
 
+#include <concepts>
 #include <filesystem>
 #include <functional>
 #include <fstream>
@@ -705,15 +718,27 @@ using namespace std::placeholders;
 
 namespace jg {
 
-struct err : public std::runtime_error {
-    err(std::string const & what = std::string()) : std::runtime_error(what) {}
+struct Err : public std::runtime_error {
+    Err(std::string const & what = std::string()) : std::runtime_error(what) {}
 };
+class ErrMemory   : public Err { using Err::Err; };
+class ErrState    : public Err { using Err::Err; };
+class ErrFile     : public Err { using Err::Err; };
+class ErrParse    : public Err { using Err::Err; };
+class ErrArg      : public Err { using Err::Err; };
+class ErrSet      : public Err { using Err::Err; };
+class ErrGetRange : public Err { using Err::Err; };
+class ErrGetKey   : public Err { using Err::Err; };
+class ErrGetType  : public Err { using Err::Err; };
+class ErrGetStr   : public Err { using Err::Err; };
+class ErrGetNum   : public Err { using Err::Err; };
 
 struct _Session {
     inline _Session() {
         jg = jg_init();
         if (!jg) {
-            throw err("jg_init() returned a NULL pointer: out of memory?");
+            throw ErrMemory(
+                "jg_init() returned a NULL pointer: out of memory?");
         }
     }
 
@@ -728,19 +753,78 @@ struct _Session {
 
 class Base {
 protected:
-    void guard(jg_ret ret) {
-        if (ret != JG_OK) {
-            throw err(jg_get_err_str(_s->jg, nullptr, nullptr));
+    void guard(jg_ret ret) const {
+        if (ret == JG_OK) {
+            return;
+        }
+        auto str = jg_get_err_str(_s->jg, nullptr, nullptr);
+        switch (ret) {
+        case JG_E_STATE_NOT_PARSE: case JG_E_STATE_NOT_GET:
+        case JG_E_STATE_NOT_SET: case JG_E_STATE_NOT_GENERATE:
+            throw ErrState(str);
+        case JG_E_SET_ROOT_ALREADY_SET: case JG_E_SET_NOT_ARR:
+        case JG_E_SET_NOT_OBJ: case JG_E_SET_OBJ_DUPLICATE_KEY:
+            throw ErrSet(str);
+        case JG_E_MALLOC: case JG_E_CALLOC: case JG_E_REALLOC:
+        case JG_E_VSPRINTF: case JG_E_VSNPRINTF: case JG_E_NEWLOCALE:
+            throw ErrMemory(str);
+        case JG_E_FREAD: case JG_E_FWRITE: case JG_E_ERRNO_FOPEN:
+        case JG_E_ERRNO_FCLOSE: case JG_E_ERRNO_FSEEKO: case JG_E_ERRNO_FTELLO:
+            throw ErrFile(str);
+        case JG_E_PARSE_INVALID_TYPE: case JG_E_PARSE_UNTERM_STR:
+        case JG_E_PARSE_UNTERM_ARR: case JG_E_PARSE_UNTERM_OBJ:
+        case JG_E_PARSE_FALSE: case JG_E_PARSE_TRUE: case JG_E_PARSE_NULL:
+        case JG_E_PARSE_NUM_SIGN: case JG_E_PARSE_NUM_LEAD_ZERO:
+        case JG_E_PARSE_NUM_INVALID: case JG_E_PARSE_NUM_MULTIPLE_POINTS:
+        case JG_E_PARSE_NUM_EXP_HEAD_INVALID: case JG_E_PARSE_NUM_EXP_INVALID:
+        case JG_E_PARSE_NUM_TOO_LARGE: case JG_E_PARSE_STR_UTF8_INVALID:
+        case JG_E_PARSE_STR_UNESC_CONTROL: case JG_E_PARSE_STR_ESC_INVALID:
+        case JG_E_PARSE_STR_UTF16_INVALID:
+        case JG_E_PARSE_STR_UTF16_UNPAIRED_LOW:
+        case JG_E_PARSE_STR_UTF16_UNPAIRED_HIGH: case JG_E_PARSE_STR_TOO_LARGE:
+        case JG_E_PARSE_ARR_INVALID_SEP: case JG_E_PARSE_OBJ_INVALID_KEY:
+        case JG_E_PARSE_OBJ_KEYVAL_INVALID_SEP: case JG_E_PARSE_OBJ_INVALID_SEP:
+        case JG_E_PARSE_OBJ_DUPLICATE_KEY: case JG_E_PARSE_ROOT_SURPLUS:
+            throw ErrParse(str);
+        case JG_E_GET_ARG_IS_NULL:
+            throw ErrArg(str);
+        case JG_E_GET_NOT_NULL: case JG_E_GET_NOT_BOOL: case JG_E_GET_NOT_NUM:
+        case JG_E_GET_NOT_STR: case JG_E_GET_NOT_ARR: case JG_E_GET_NOT_OBJ:
+            throw ErrGetType(str);
+        case JG_E_GET_ARR_INDEX_OVER: case JG_E_GET_ARR_TOO_SHORT:
+        case JG_E_GET_ARR_TOO_LONG: case JG_E_GET_OBJ_TOO_SHORT:
+        case JG_E_GET_OBJ_TOO_LONG:
+            throw ErrGetRange(str);
+        case JG_E_GET_OBJ_KEY_NOT_FOUND:
+            throw ErrGetKey(str);
+        case JG_E_GET_STR_BYTE_C_TOO_FEW: case JG_E_GET_STR_BYTE_C_TOO_MANY:
+        case JG_E_GET_STR_CHAR_C_TOO_FEW: case JG_E_GET_STR_CHAR_C_TOO_MANY:
+             throw ErrGetStr(str);
+        case JG_E_GET_NUM_NOT_INTEGER: case JG_E_GET_NUM_NOT_UNSIGNED:
+        case JG_E_GET_NUM_SIGNED_TOO_SMALL: case JG_E_GET_NUM_SIGNED_TOO_LARGE:
+        case JG_E_GET_NUM_UNSIGNED_TOO_SMALL:
+        case JG_E_GET_NUM_UNSIGNED_TOO_LARGE: case JG_E_GET_NUM_NOT_FLO:
+        case JG_E_GET_NUM_FLOAT_OUT_OF_RANGE:
+        case JG_E_GET_NUM_DOUBLE_OUT_OF_RANGE:
+        case JG_E_GET_NUM_LONG_DOUBLE_OUT_OF_RANGE:
+            throw ErrGetNum(str);
+        default:
+            throw Err("Unrecognized jg_ret value " + std::to_string(ret) +
+                ": " + str);
         }
     }
 
-    template <typename Functor> inline auto get_json_type(Functor functor) {
+    template <typename Functor> inline auto get_json_type(
+        Functor functor
+    ) const {
         jg_type type{};
         guard(functor(&type));
         return type;
     }
 
-    template <typename Functor> inline auto get_bool(Functor functor) {
+    template <typename Functor> inline auto get_bool(
+        Functor functor
+    ) const {
         bool b{};
         guard(functor(&b));
         return b;
@@ -750,28 +834,73 @@ protected:
         Functor functor,
         size_t min_c = 0,
         size_t max_c = 0,
-        std::string const& min_c_reason = std::string(),
-        std::string const& max_c_reason = std::string()
-    );
+        std::string const & min_c_reason = std::string(),
+        std::string const & max_c_reason = std::string()
+    ) const;
+
+    template <typename Functor> inline auto get_obj(
+        Functor functor,
+        size_t min_c = 0,
+        size_t max_c = 0,
+        std::string const & min_c_reason = std::string(),
+        std::string const & max_c_reason = std::string()
+    ) const;
+
+    template <typename Functor, typename Opt> inline auto get_str(
+        Functor functor,
+        Opt && opt,
+        size_t min_byte_c = 0,
+        size_t max_byte_c = 0,
+        size_t min_cp_c = 0,
+        size_t max_cp_c = 0,
+        std::string const & min_byte_c_reason = std::string(),
+        std::string const & max_byte_c_reason = std::string(),
+        std::string const & min_cp_c_reason = std::string(),
+        std::string const & max_cp_c_reason = std::string(),
+        size_t * codepoint_c = nullptr
+    ) const {
+        size_t byte_c{};
+
+        opt.byte_c = &byte_c;
+        opt.codepoint_c = codepoint_c;
+        opt.min_byte_c_reason =
+            min_byte_c_reason.empty() ? nullptr : min_byte_c_reason.c_str();
+        opt.max_byte_c_reason =
+            max_byte_c_reason.empty() ? nullptr : max_byte_c_reason.c_str();
+        opt.min_cp_c_reason =
+            min_cp_c_reason.empty() ? nullptr : min_cp_c_reason.c_str();
+        opt.max_cp_c_reason =
+            max_cp_c_reason.empty() ? nullptr : max_cp_c_reason.c_str();
+        opt.min_byte_c = min_byte_c;
+        opt.max_byte_c = max_byte_c;
+        opt.min_cp_c = min_cp_c;
+        opt.max_cp_c = max_cp_c;
+        opt.omit_null_terminator = true;
+
+        guard(functor(&opt, nullptr));
+        std::string str(byte_c, ' ');
+        guard(functor(&opt, &str[0]));
+        return str;
+    }
 
     std::shared_ptr<jg::_Session const> _s{};
 };
 
-struct Root : Base {
+struct Root : protected Base {
     inline Root() {
         _s = std::make_shared<jg::_Session const>();
     }
 
     inline void parse_str(
         std::string const & json_text
-    ) {
+    ) const {
         guard(jg_parse_str(_s->jg, json_text.c_str(), json_text.size()));
     }
 
     template <typename Type>
     inline void parse_str(
         std::span<Type> const & json_text
-    ) {
+    ) const {
        guard(jg_parse_str(_s->jg, reinterpret_cast<char const *>(&json_text[0]),
             json_text.size_bytes()));
     }
@@ -779,76 +908,99 @@ struct Root : Base {
     template <typename Type>
     inline void parse_str(
         std::vector<Type> const & json_text
-    ) {
+    ) const {
         guard(parse_str(std::span(json_text)));
     }
 
+    // This path string argument is expected to be UTF-8 encoded. (If it isn't,
+    // it's probably more convenient to create a std::filesystem::path object,
+    // and use the corresponding overloaded method below.)
     inline void parse_file(
         std::string const & filepath
-    ) {
+    ) const {
         guard(jg_parse_file(_s->jg, filepath.c_str()));
     }
 
-    /*inline void parse_file(
-        std::filesystem::path const & filepath
-    ) {
+    // Explicitly require (C++20) std::filesystem::path for this overload to
+    // prevent the compiler from trying to promote std::string, and then getting
+    // confused that there already is another overload above taking std::string.
+    template <typename Type> requires std::same_as<Type, std::filesystem::path>
+    inline void parse_file(
+        Type const & filepath
+    ) const {
+        // Use std::ifstream instead of jg_parse_file() here to automatically
+        // handle std::filesystem::path variables encoded in something other
+        // than UTF-8. In other words, deal with Microsoft's UTF-16 shenanigans.
         size_t byte_c{};
         try {
             byte_c = std::filesystem::file_size(filepath);
         } catch (std::filesystem::filesystem_error & e) {
-            throw err(
+            throw ErrFile(
                 std::string("Failed to obtain JSON file size: ") + e.what());
         }
         std::vector<char> json_text(byte_c);
         std::ifstream ifs(filepath, std::ios::binary);
         if (!ifs) {
-            throw err("Failed to read JSON file via std::ifstream.");
+            throw ErrFile("Failed to read JSON file via std::ifstream.");
         }
         ifs.read(&json_text[0], byte_c);
         if (ifs.gcount() != byte_c) {
-            throw err("Number of bytes read via std::ifstream does not match "
-                "the file size reported by std::filesystem::file_size().");
+            throw ErrFile("Number of bytes read via std::ifstream does not "
+                "match the file size reported by std::filesystem::file_size()."
+            );
         }
         parse_str(json_text);
-    }*/
+    }
 
-    inline auto get_json_type() {
+    inline auto get_json_type() const {
         return Base::get_json_type(
             std::bind(jg_root_get_json_type, _s->jg, _1));
     }
-    inline void get_null() {
+
+    inline void get_null() const {
         guard(jg_root_get_null(_s->jg));
     }
-    inline auto get_bool() {
+
+    inline auto get_bool() const {
         return Base::get_bool(std::bind(jg_root_get_bool, _s->jg, _1));
     }
-    template <typename... Args> inline auto get_arr(Args... args) {
+
+    template <typename... Args> inline auto get_arr(Args... args) const {
         return Base::get_arr(std::bind(jg_root_get_arr, _s->jg, _1, _2, _3),
             args...);
+    }
+
+    template <typename... Args> inline auto get_obj(Args... args) const {
+        return Base::get_obj(std::bind(jg_root_get_obj, _s->jg, _1, _2),
+            args...);
+    }
+
+    template <typename... Args> inline auto get_str(Args... args) const {
+        return Base::get_str(std::bind(jg_root_get_callerstr, _s->jg, _1, _2),
+            jg_opt_str{}, args...);
+    }
+    template <typename... Args> inline std::u8string get_u8str(Args... args)
+        const {
+        auto str = get_str(args...);
+        return *reinterpret_cast<std::u8string *>(&str);
+    }
+    template <typename... Args> inline auto get_json_str(Args... args) const {
+        return Base::get_str(std::bind(jg_root_get_json_callerstr, _s->jg, _1,
+            _2), jg_opt_str{}, args...);
+    }
+    template <typename... Args> inline std::u8string get_json_u8str(
+        Args... args) const {
+        auto json_str = get_json_str(args...);
+        return *reinterpret_cast<std::u8string *>(&json_str);
     }
 };
 
 class Container : protected Base {
 public:
-    inline size_t size() noexcept { return _elem_c; }
-    inline size_t index() noexcept { return _i; }
-    auto begin() const { return *this; }
-    auto end() const { return *this; }
-    auto operator * () const { return *this; }
-    bool operator != (Container & rhs) const { return _i < rhs._elem_c; }
-    auto & operator ++ () {
-        if (++_i >= _elem_c) {
-            throw err("Container incremented beyond its valid range.");
-        }
-        return *this;
-    }
-    auto & operator [] (size_t index) {
-        if (index >= _elem_c) {
-            throw err("Container received a subscription index beyond its "
-                "valid range.");
-        }
-        _i = index;
-        return *this;
+    inline size_t size() const noexcept { return _elem_c; }
+    inline size_t index() const noexcept { return _i; }
+    inline bool operator != (Container & rhs) const noexcept {
+        return _i < rhs._elem_c;
     }
 protected:
     inline Container(
@@ -861,73 +1013,230 @@ protected:
     size_t _i{};
 };
 
-class ArrGet : Container {
+class ArrGet : public Container {
 public:
     inline ArrGet(
         std::shared_ptr<jg::_Session const> s,
         jg_arr_get_t * arr,
         size_t elem_c
     ) noexcept : Container(s) {
-        _arr = arr;
         _elem_c = elem_c;
+        _arr = arr;
     }
 
-    inline auto get_json_type() {
+    inline auto & begin() const noexcept { return *this; }
+    inline auto end() const noexcept { return *this; }
+    inline auto & operator * () const noexcept { return *this; }
+    inline auto & operator ++ () noexcept {
+        _i++;
+        return *this;
+    }
+    inline auto operator [] (size_t index) {
+        if (index >= _elem_c) {
+            throw ErrGetRange("Array received a subscription index beyond its "
+                "valid range.");
+        }
+        _i = index;
+        return *this;
+    }
+
+    inline auto get_json_type() const {
         return Base::get_json_type(
             std::bind(jg_arr_get_json_type, _s->jg, _arr, _i, _1));
     }
-    inline void get_null() {
+
+    inline void get_null() const {
         guard(jg_arr_get_null(_s->jg, _arr, _i));
     }
-    inline auto get_bool() {
+
+    inline auto get_bool() const {
         return Base::get_bool(std::bind(jg_arr_get_bool, _s->jg, _arr, _i, _1));
     }
-    template <typename... Args> inline auto get_arr(Args... args) {
+
+    template <typename... Args> inline auto get_arr(Args... args) const {
         return Base::get_arr(std::bind(jg_arr_get_arr, _s->jg, _arr, _i, _1, _2,
-            _3), args);
+            _3), args...);
+    }
+
+    template <typename... Args> inline auto get_obj(Args... args) const {
+        return Base::get_obj(std::bind(jg_arr_get_obj, _s->jg, _arr, _i, _1,
+            _2), args...);
+    }
+
+    template <typename... Args> inline auto get_str(Args... args) const {
+        return Base::get_str(std::bind(jg_arr_get_callerstr, _s->jg, _arr, _i,
+            _1, _2), jg_opt_str{}, args...);
+    }
+    template <typename... Args> inline std::u8string get_u8str(Args... args)
+        const {
+        auto str = get_str(args...);
+        return *reinterpret_cast<std::u8string *>(&str);
+    }
+    template <typename... Args> inline auto get_json_str(Args... args) const {
+        return Base::get_str(std::bind(jg_arr_get_json_callerstr, _s->jg, _arr,
+            _i, _1, _2), jg_opt_str{}, args...);
+    }
+    template <typename... Args> inline std::u8string get_json_u8str(
+        Args... args) const {
+        auto json_str = get_json_str(args...);
+        return *reinterpret_cast<std::u8string *>(&json_str);
     }
 private:
     jg_arr_get_t * _arr{};
 };
 
-class ObjGet : Container {
+class ObjGet : public Container {
 public:
     inline ObjGet(
         std::shared_ptr<jg::_Session const> s,
         jg_obj_get_t * obj,
-        char const * * keys
+        char * * keys,
+        size_t key_c
     ) noexcept : Container(s) {
+        _elem_c = key_c;
         _obj = obj;
         _keys = keys;
     }
+    inline ~ObjGet() noexcept {
+        // These keys were received from a C API ..._get_obj...() option struct,
+        // which hands off heap ownership responsibility to the caller.
+        free(_keys);
+    }
 
-    /*auto& operator [] (std::string const& key) {
+    inline auto & begin() const noexcept { return *this; }
+    inline auto end() const noexcept { return *this; }
+    inline auto & operator * () const noexcept { return *this; }
+    inline auto & operator ++ () noexcept {
+        ++_i < _elem_c ? _k = _keys[_i] : _k = _keys[_elem_c - 1];
         return *this;
-    }*/
+    }
+    inline auto operator [] (size_t index) {
+        if (index >= _elem_c) {
+            throw ErrGetRange("Array received a subscription index beyond its "
+                "valid range.");
+        }
+        _k = _keys[_i = index];
+        return *this;
+    }
+    auto & operator [] (std::string const & key) {
+        for (_i = 0; _i < _elem_c; _i++) {
+            _k = _keys[_i];
+            if (_k == key) {
+                return *this;
+            }
+        }
+        throw ErrGetKey("Key \"" + key + "\" not found.");
+    }
 
-    inline auto get_json_type() {
+    inline std::string get_key() const noexcept { return _k; }
+    inline auto get_keys() const {
+        std::vector<std::string> keys(_elem_c);
+        auto k = _keys;
+        for (auto & key : keys) {
+            key = *k++;
+        }
+        return keys;
+    }
+
+    inline auto get_json_type() const {
         return Base::get_json_type(
-            std::bind(jg_obj_get_json_type, _s->jg, _obj, _key, _1));
+            std::bind(jg_obj_get_json_type, _s->jg, _obj, _k, _1));
     }
-    inline void get_null() {
-        guard(jg_obj_get_null(_s->jg, _obj, _key));
+
+    inline void get_null() const {
+        guard(jg_obj_get_null(_s->jg, _obj,  _k));
     }
-    inline auto get_bool() {
-        return Base::get_bool(std::bind(jg_obj_get_bool, _s->jg, _obj, _key,
+
+    inline auto get_bool() const {
+        return Base::get_bool(std::bind(jg_obj_get_bool, _s->jg, _obj, _k,
             nullptr, _1));
     }
-    inline auto get_bool(bool defa) {
-        return Base::get_bool(std::bind(jg_obj_get_bool, _s->jg, _obj, _key,
+    inline auto get_bool(bool defa) const {
+        return Base::get_bool(std::bind(jg_obj_get_bool, _s->jg, _obj, _k,
             &defa, _1));
     }
-    template <typename... Args> inline auto get_arr(Args... args) {
-        return Base::get_arr(std::bind(jg_obj_get_arr, _s->jg, _obj, _key, _1,
-            _2, _3), args);
+
+    template <typename... Args> inline auto get_arr(Args... args) const {
+        return Base::get_arr(std::bind(jg_obj_get_arr, _s->jg, _obj, _k, _1, _2,
+            _3), args...);
+    }
+    inline auto get_arr_defa(
+        size_t max_c = 0,
+        std::string const & max_c_reason = std::string()
+    ) const {
+        jg_obj_arr_defa opt{
+            max_c_reason.empty() ? nullptr : max_c_reason.c_str(),
+            max_c
+        };
+        jg_arr_get_t * arr{};
+        size_t elem_c{};
+        guard(jg_obj_get_arr_defa(_s->jg, _obj, _k, &opt, &arr, &elem_c));
+        return ArrGet(_s, arr, elem_c);
+    }
+
+    template <typename... Args> inline auto get_obj(Args... args) const {
+        return Base::get_obj(std::bind(jg_obj_get_obj, _s->jg, _obj, _k, _1,
+            _2), args...);
+    }
+    inline auto get_obj_defa(
+        size_t max_c = 0,
+        std::string const & max_c_reason = std::string()
+    ) const {
+        char * * keys{};
+        size_t key_c{};
+        jg_obj_obj_defa opt{
+            &keys,
+            &key_c,
+            max_c_reason.empty() ? nullptr : max_c_reason.c_str(),
+            max_c,
+        };
+        jg_obj_get_t * obj{};
+        guard(jg_obj_get_obj_defa(_s->jg, _obj, _k, &opt, &obj));
+        return ObjGet(_s, obj, keys, key_c);
+    }
+
+    template <typename... Args> inline auto get_str(Args... args) const {
+        return Base::get_str(std::bind(jg_obj_get_callerstr, _s->jg, _obj, _k,
+            _1, _2), jg_opt_obj_str{}, args...);
+    }
+    template <typename... Args> inline std::u8string get_u8str(Args... args)
+        const {
+        auto str = get_str(args...);
+        return *reinterpret_cast<std::u8string *>(&str);
+    }
+    template <typename... Args> inline auto get_str_defa(
+        std::string const & defa, Args... args) const {
+        return Base::get_str(std::bind(jg_obj_get_callerstr, _s->jg, _obj, _k,
+            _1, _2), jg_opt_obj_str{defa.c_str()}, args...);
+    }
+    template <typename... Args> inline std::u8string get_u8str_defa(
+        Args... args) const {
+        auto str_defa = get_str_defa(args...);
+        return *reinterpret_cast<std::u8string *>(&str_defa);
+    }
+    template <typename... Args> inline auto get_json_str(Args... args) const {
+        return Base::get_str(std::bind(jg_obj_get_json_callerstr, _s->jg, _obj,
+            _k, _1, _2), jg_opt_obj_str{}, args...);
+    }
+    template <typename... Args> inline std::u8string get_json_u8str(
+        Args... args) const {
+        auto json_str = get_json_str(args...);
+        return *reinterpret_cast<std::u8string *>(&json_str);
+    }
+    template <typename... Args> inline auto get_json_str_defa(
+        std::string const & defa, Args... args) const {
+        return Base::get_str(std::bind(jg_obj_get_json_callerstr, _s->jg, _obj,
+            _k, _1, _2), jg_opt_obj_str{defa.c_str()}, args...);
+    }
+    template <typename... Args> inline std::u8string get_json_u8str_defa(
+        Args... args) const {
+        auto json_str_defa = get_json_str_defa(args...);
+        return *reinterpret_cast<std::u8string *>(&json_str_defa);
     }
 private:
     jg_obj_get_t * _obj{};
-    char const * * _keys{};
-    char const * _key{};
+    char * * _keys{};
+    char * _k{};
 };
 
 /*class ArrSet : Base {
@@ -961,12 +1270,40 @@ inline auto Base::get_arr(
     size_t max_c,
     std::string const & min_c_reason,
     std::string const & max_c_reason
-) {
-    jg_opt_arr opt{min_c_reason.c_str(), max_c_reason.c_str(), min_c, max_c};
-    jg_arr_get_t * _arr{};
+) const {
+    jg_opt_arr opt{
+        min_c_reason.empty() ? nullptr : min_c_reason.c_str(),
+        max_c_reason.empty() ? nullptr : max_c_reason.c_str(),
+        min_c,
+        max_c
+    };
+    jg_arr_get_t * arr{};
     size_t elem_c{};
-    guard(functor(&opt, &_arr, &elem_c));
-    return ArrGet(_s, _arr, elem_c);
+    guard(functor(&opt, &arr, &elem_c));
+    return ArrGet(_s, arr, elem_c);
+}
+
+template <typename Functor>
+inline auto Base::get_obj(
+    Functor functor,
+    size_t min_c,
+    size_t max_c,
+    std::string const & min_c_reason,
+    std::string const & max_c_reason
+) const {
+    char * * keys{};
+    size_t key_c{};
+    jg_opt_obj opt{
+        &keys,
+        &key_c,
+        min_c_reason.empty() ? nullptr : min_c_reason.c_str(),
+        max_c_reason.empty() ? nullptr : max_c_reason.c_str(),
+        min_c,
+        max_c,
+    };
+    jg_obj_get_t * obj{};
+    guard(functor(&opt, &obj));
+    return ObjGet(_s, obj, keys, key_c);
 }
 
 } // End of namespace jg

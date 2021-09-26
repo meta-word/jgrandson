@@ -3,13 +3,6 @@
 
 #pragma once
 
-#ifdef _MSC_VER // If any version of Visual Studio
-#define _CRT_SECURE_NO_WARNINGS
-#pragma warning(disable: 6011) // Microsoft's C static analysis game is weak
-#pragma warning(disable: 6386) // Microsoft's C static analysis game is weak
-#pragma warning(disable: 6387) // Microsoft's C static analysis game is weak
-#endif
-
 #include "jgrandson.h"
 
 // All public API functions return an error if that function belongs to a
@@ -229,8 +222,6 @@ jg_ret unesc_str_and_json_str_are_equal(
 );
 
 #if defined(_WIN32) || defined(_WIN64)
-#pragma warning(disable: 5105) // windows.h/winbase.h complains about itself...
-#include <windows.h>
 wchar_t * str_to_wstr(
     char const * str
 ); // The returned wstr must be free()d by the called after use.
