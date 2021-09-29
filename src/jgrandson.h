@@ -814,22 +814,6 @@ protected:
         }
     }
 
-    template <typename Functor> inline auto get_json_type(
-        Functor functor
-    ) const {
-        jg_type type{};
-        guard(functor(&type));
-        return type;
-    }
-
-    template <typename Functor> inline auto get_bool(
-        Functor functor
-    ) const {
-        bool b{};
-        guard(functor(&b));
-        return b;
-    }
-
     template <typename Functor> inline auto get_arr(
         Functor functor,
         size_t min_c = 0,
@@ -853,6 +837,7 @@ protected:
         size_t max_byte_c = 0,
         size_t min_cp_c = 0,
         size_t max_cp_c = 0,
+        // Cannot use std::string_view: null-terminated .c_str() needed
         std::string const & min_byte_c_reason = std::string(),
         std::string const & max_byte_c_reason = std::string(),
         std::string const & min_cp_c_reason = std::string(),
@@ -885,6 +870,120 @@ protected:
 
     std::shared_ptr<jg::_Session const> _s{};
 };
+
+#undef _
+
+#define _JGP_ARGS(...) __VA_ARGS__
+#define _JGP_ARGS_MINMAX_NDEFA(_type, ...) __VA_ARGS__
+#define _JGP_ARGS_MINMAX_DEFA(_type, ...) _type defa, __VA_ARGS__
+#define _JGP_ARGS_MINMAX(_args, _type, _type_min, _type_max) \
+    _##_args(_type, \
+        _type min = _type_min, \
+        _type max = _type_max, \
+        /* Cannot use std::string_view: null-terminated .c_str() needed */ \
+        std::string const & min_reason = std::string(), \
+        std::string const & max_reason = std::string() \
+    )
+
+#define _JGP_OPT
+#define _JGP_OPT_MINMAX_NDEFA(_opt_t, _defa_ptr, ...) \
+    _opt_t opt { __VA_ARGS__ }
+#define _JGP_OPT_MINMAX_DEFA(_opt_t, _defa_ptr, ...) \
+    _opt_t opt { _defa_ptr, __VA_ARGS__ }
+#define _JGP_OPT_MINMAX(_opt, _opt_t, _defa_ptr, _type, _type_min, _type_max) \
+    _##_opt(_opt_t, _defa_ptr, \
+        min_reason.empty() ? nullptr : min_reason.c_str(), \
+        max_reason.empty() ? nullptr : max_reason.c_str(), \
+        min == _type_min ? nullptr : &min, \
+        max == _type_max ? nullptr : &max \
+    )
+
+#define JGP_GET(_suf, _type, _args, _opt, _func) \
+    inline auto get##_suf(_##_args) const { \
+        _##_opt; \
+        _type v{}; \
+        guard(_func); \
+        return v; \
+    }
+
+#define _JGP_GET_ROOT(_suf, _type) \
+    JGP_GET(_suf, _type, JGP_ARGS(), JGP_OPT, \
+        jg_root_get##_suf(_s->jg, &v) \
+    )
+#define _JGP_GET_ARR(_suf, _type) \
+    JGP_GET(_suf, _type, JGP_ARGS(), JGP_OPT, \
+        jg_arr_get##_suf(_s->jg, _arr, _i, &v) \
+    )
+#define _JGP_GET_OBJ(_suf, _type) \
+    JGP_GET(_suf, _type, JGP_ARGS(), JGP_OPT, \
+        jg_obj_get##_suf(_s->jg, _obj, _k, &v) \
+    )
+#define _JGP_GET_OBJ_NDEFA(_suf, _type) \
+    JGP_GET(_suf, _type, JGP_ARGS(), JGP_OPT, \
+        jg_obj_get##_suf(_s->jg, _obj, _k, nullptr, &v) \
+    )
+#define _JGP_GET_OBJ_DEFA(_suf, _type) \
+    JGP_GET(_suf##_defa, _type, JGP_ARGS(_type defa), JGP_OPT, \
+        jg_obj_get##_suf(_s->jg, _obj, _k, &defa, &v) \
+    )
+#define _JGP_GET_ROOT_MINMAX(_suf, _type, _type_min, _type_max) \
+    JGP_GET(_suf, _type, \
+        JGP_ARGS_MINMAX(JGP_ARGS_MINMAX_NDEFA, _type, _type_min, _type_max), \
+        JGP_OPT_MINMAX(JGP_OPT_MINMAX_NDEFA, jg_opt##_suf, nullptr, _type, \
+            _type_min, _type_max), \
+        jg_root_get##_suf(_s->jg, &opt, &v) \
+    )
+#define _JGP_GET_ARR_MINMAX(_suf, _type, _type_min, _type_max) \
+    JGP_GET(_suf, _type, \
+        JGP_ARGS_MINMAX(JGP_ARGS_MINMAX_NDEFA, _type, _type_min, _type_max), \
+        JGP_OPT_MINMAX(JGP_OPT_MINMAX_NDEFA, jg_opt##_suf, nullptr, _type, \
+            _type_min, _type_max), \
+        jg_arr_get##_suf(_s->jg, _arr, _i, &opt, &v) \
+    )
+#define _JGP_GET_OBJ_MINMAX_NDEFA(_suf, _type, _type_min, _type_max) \
+    JGP_GET(_suf, _type, \
+        JGP_ARGS_MINMAX(JGP_ARGS_MINMAX_NDEFA, _type, _type_min, _type_max), \
+        JGP_OPT_MINMAX(JGP_OPT_MINMAX_DEFA, jg_opt_obj##_suf, nullptr, _type, \
+            _type_min, _type_max), \
+        jg_obj_get##_suf(_s->jg, _obj, _k, &opt, &v) \
+    )
+#define _JGP_GET_OBJ_MINMAX_DEFA(_suf, _type, _type_min, _type_max) \
+    JGP_GET(_suf##_defa, _type, \
+        JGP_ARGS_MINMAX(JGP_ARGS_MINMAX_DEFA, _type, _type_min, _type_max), \
+        JGP_OPT_MINMAX(JGP_OPT_MINMAX_DEFA, jg_opt_obj##_suf, &defa, _type, \
+            _type_min, _type_max), \
+        jg_obj_get##_suf(_s->jg, _obj, _k, &opt, &v) \
+    )
+
+#define JGP_GET_JSON_TYPE(_get) _##_get(_json_type, jg_type)
+#define JGP_GET_BOOL(_get) _##_get(_bool, bool)
+#define JGP_GET_INT(_get_minmax) \
+    _##_get_minmax(_int8, int8_t, INT8_MIN, INT8_MAX); \
+    _##_get_minmax(_char, char, CHAR_MIN, CHAR_MAX); \
+    _##_get_minmax(_signed_char, signed char, INT8_MIN, INT8_MAX); \
+    _##_get_minmax(_int16, int16_t, INT16_MIN, INT16_MAX); \
+    _##_get_minmax(_short, short, SHRT_MIN, SHRT_MAX); \
+    _##_get_minmax(_int32, int32_t, INT32_MIN, INT32_MAX); \
+    _##_get_minmax(_int, int, INT_MIN, INT_MAX); \
+    _##_get_minmax(_int64, int64_t, INT64_MIN, INT64_MAX); \
+    _##_get_minmax(_long, long, LONG_MIN, LONG_MAX); \
+    _##_get_minmax(_long_long, long long, LLONG_MIN, LLONG_MAX); \
+    _##_get_minmax(_intmax, intmax_t, INTMAX_MIN, INTMAX_MAX); \
+    _##_get_minmax(_uint8, uint8_t, 0, UINT8_MAX); \
+    _##_get_minmax(_unsigned_char, unsigned char, 0, UINT8_MAX); \
+    _##_get_minmax(_uint16, uint16_t, 0, UINT16_MAX); \
+    _##_get_minmax(_unsigned_short, unsigned short, 0, USHRT_MAX); \
+    _##_get_minmax(_uint32, uint32_t, 0, UINT32_MAX); \
+    _##_get_minmax(_unsigned, unsigned, 0, UINT_MAX); \
+    _##_get_minmax(_uint64, uint64_t, 0, UINT64_MAX); \
+    _##_get_minmax(_unsigned_long, unsigned long, 0, LONG_MAX); \
+    _##_get_minmax(_unsigned_long_long, unsigned long long, 0, ULLONG_MAX); \
+    _##_get_minmax(_sizet, size_t, 0, SIZE_MAX); \
+    _##_get_minmax(_uintmax, uintmax_t, 0, UINTMAX_MAX)
+#define JGP_GET_FLO(_get) \
+    _##_get(_float, float); \
+    _##_get(_double, double); \
+    _##_get(_long_double, long double)
 
 struct Root : protected Base {
     inline Root() {
@@ -952,19 +1051,6 @@ struct Root : protected Base {
         parse_str(json_text);
     }
 
-    inline auto get_json_type() const {
-        return Base::get_json_type(
-            std::bind(jg_root_get_json_type, _s->jg, _1));
-    }
-
-    inline void get_null() const {
-        guard(jg_root_get_null(_s->jg));
-    }
-
-    inline auto get_bool() const {
-        return Base::get_bool(std::bind(jg_root_get_bool, _s->jg, _1));
-    }
-
     template <typename... Args> inline auto get_arr(Args... args) const {
         return Base::get_arr(std::bind(jg_root_get_arr, _s->jg, _1, _2, _3),
             args...);
@@ -993,6 +1079,13 @@ struct Root : protected Base {
         auto json_str = get_json_str(args...);
         return *reinterpret_cast<std::u8string *>(&json_str);
     }
+
+    inline void get_null() const { guard(jg_root_get_null(_s->jg)); }
+    JGP_GET_JSON_TYPE(JGP_GET_ROOT);
+    JGP_GET_BOOL(JGP_GET_ROOT);
+    JGP_GET_INT(JGP_GET_ROOT_MINMAX);
+    JGP_GET_FLO(JGP_GET_ROOT);
+
 };
 
 class Container : protected Base {
@@ -1040,19 +1133,6 @@ public:
         return *this;
     }
 
-    inline auto get_json_type() const {
-        return Base::get_json_type(
-            std::bind(jg_arr_get_json_type, _s->jg, _arr, _i, _1));
-    }
-
-    inline void get_null() const {
-        guard(jg_arr_get_null(_s->jg, _arr, _i));
-    }
-
-    inline auto get_bool() const {
-        return Base::get_bool(std::bind(jg_arr_get_bool, _s->jg, _arr, _i, _1));
-    }
-
     template <typename... Args> inline auto get_arr(Args... args) const {
         return Base::get_arr(std::bind(jg_arr_get_arr, _s->jg, _arr, _i, _1, _2,
             _3), args...);
@@ -1081,6 +1161,13 @@ public:
         auto json_str = get_json_str(args...);
         return *reinterpret_cast<std::u8string *>(&json_str);
     }
+
+    inline void get_null() const { guard(jg_arr_get_null(_s->jg, _arr, _i)); }
+    JGP_GET_JSON_TYPE(JGP_GET_ARR);
+    JGP_GET_BOOL(JGP_GET_ARR);
+    JGP_GET_INT(JGP_GET_ARR_MINMAX);
+    JGP_GET_FLO(JGP_GET_ARR);
+
 private:
     jg_arr_get_t * _arr{};
 };
@@ -1136,24 +1223,6 @@ public:
             key = *k++;
         }
         return keys;
-    }
-
-    inline auto get_json_type() const {
-        return Base::get_json_type(
-            std::bind(jg_obj_get_json_type, _s->jg, _obj, _k, _1));
-    }
-
-    inline void get_null() const {
-        guard(jg_obj_get_null(_s->jg, _obj,  _k));
-    }
-
-    inline auto get_bool() const {
-        return Base::get_bool(std::bind(jg_obj_get_bool, _s->jg, _obj, _k,
-            nullptr, _1));
-    }
-    inline auto get_bool(bool defa) const {
-        return Base::get_bool(std::bind(jg_obj_get_bool, _s->jg, _obj, _k,
-            &defa, _1));
     }
 
     template <typename... Args> inline auto get_arr(Args... args) const {
@@ -1233,11 +1302,44 @@ public:
         auto json_str_defa = get_json_str_defa(args...);
         return *reinterpret_cast<std::u8string *>(&json_str_defa);
     }
+
+    inline void get_null() const { guard(jg_obj_get_null(_s->jg, _obj,  _k)); }
+    JGP_GET_JSON_TYPE(JGP_GET_OBJ);
+    JGP_GET_BOOL(JGP_GET_OBJ_NDEFA);
+    JGP_GET_BOOL(JGP_GET_OBJ_DEFA);
+    JGP_GET_INT(JGP_GET_OBJ_MINMAX_NDEFA);
+    JGP_GET_INT(JGP_GET_OBJ_MINMAX_DEFA);
+    JGP_GET_FLO(JGP_GET_OBJ_NDEFA);
+    JGP_GET_FLO(JGP_GET_OBJ_DEFA);
+
 private:
     jg_obj_get_t * _obj{};
     char * * _keys{};
     char * _k{};
 };
+
+#undef _JGP_ARGS
+#undef _JGP_ARGS_MINMAX_NDEFA
+#undef _JGP_ARGS_MINMAX_DEFA
+#undef _JGP_ARGS_MINMAX
+#undef _JGP_OPT
+#undef _JGP_OPT_MINMAX_NDEFA
+#undef _JGP_OPT_MINMAX_DEFA
+#undef _JGP_OPT_MINMAX
+#undef JGP_GET
+#undef _JGP_GET_ROOT
+#undef _JGP_GET_ARR
+#undef _JGP_GET_OBJ
+#undef _JGP_GET_OBJ_NDEFA
+#undef _JGP_GET_OBJ_DEFA
+#undef _JGP_GET_ROOT_MINMAX
+#undef _JGP_GET_ARR_MINMAX
+#undef _JGP_GET_OBJ_MINMAX_NDEFA
+#undef _JGP_GET_OBJ_MINMAX_DEFA
+#undef JGP_GET_JSON_TYPE
+#undef JGP_GET_BOOL
+#undef JGP_GET_INT
+#undef JGP_GET_FLO
 
 /*class ArrSet : Base {
 public:

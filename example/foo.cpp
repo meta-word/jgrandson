@@ -35,6 +35,13 @@ static void parse_json() {
 		"No keys are recognized other than \"id\", \"размер\", "
 			"\"short_flo\", and \"long_flo\"."
 	);
+	auto id = child_obj["id"].get_uint64_defa(42, 1, UINT64_MAX,
+		"0 is a reserved value.");
+	auto dimension = child_obj["размер"].get_sizet_defa(24);
+	auto short_flo = child_obj["short_flo"].get_float_defa(0.12345f);
+	auto long_flo = child_obj["long_flo"].get_long_double_defa(-1.2345);
+	std::cout << "id: " << id << ", dimension: " << dimension <<
+		", short_flo: " << short_flo << ", long_flo: " << long_flo << "\n";
 }
 
 int main() {
