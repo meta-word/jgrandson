@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-// Copyright © 2019 William Budd
+// Copyright © 2021 MetaWord Inc
+// Copyright © 2019-2021 William Budd
 
 #define _POSIX_C_SOURCE 201112L // ftello() and fseeko()'s off_t
 #define _FILE_OFFSET_BITS 64 // Ensure off_t is 64 bits (possibly redundant)
